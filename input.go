@@ -9,13 +9,8 @@ func (t *Terminal) onTypedKey(e *fyne.KeyEvent) {
 	if e.Name == fyne.KeyBackspace {
 		_, _ = t.in.Write([]byte{asciiBackspace})
 	}
-
 }
 
 func (t *Terminal) onTypedRune(r rune) {
 	_, _ = t.in.Write([]byte{byte(r)})
-}
-
-func setInputs() {
-
 }

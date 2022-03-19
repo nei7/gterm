@@ -12,9 +12,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	go t.start()
 
 	ui := setupUI(t)
+	go t.start()
 
 	ui.ShowAndRun()
 }

@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -28,16 +27,27 @@ type Terminal struct {
 }
 
 func NewTerminal() *Terminal {
-	cursor := canvas.NewRectangle(color.White)
-	cursor.Resize(fyne.NewSize(10, 18))
 
 	t := &Terminal{
 		content: widget.NewTextGrid(),
 		homedir: homeDir(),
-		cursor:  cursor,
+		cursor:  createCursor(),
 	}
 
 	return t
+}
+
+func createCursor() *canvas.Rectangle {
+	cursor := canvas.NewRectangle(color.White)
+	cursor.Resize(fyne.Size{
+		Width:  7,
+		Height: 14,
+	})
+	cursor.FillColor = color.Transparent
+	cursor.StrokeColor = color.White
+	cursor.StrokeWidth = 1.7
+
+	return cursor
 }
 
 func homeDir() string {
@@ -52,7 +62,7 @@ func homeDir() string {
 func (t *Terminal) startPty() error {
 	_ = os.Chdir(t.homedir)
 
-	os.Setenv("TERM", "dumb")
+	os.Setenv("TERM", "gterm")
 	cmd := exec.Command("/bin/bash")
 
 	pt, err := pty.Start(cmd)
@@ -68,9 +78,8 @@ func (t *Terminal) startPty() error {
 }
 
 func (t *Terminal) handleOutput(buf []byte) {
-	str := string(buf)
 
-	for _, r := range []rune(str) {
+	for _, r := range []rune(string(buf)) {
 
 		if r == '\r' {
 			continue
@@ -80,10 +89,16 @@ func (t *Terminal) handleOutput(buf []byte) {
 			break
 		}
 
-		if r == '\n' || len(t.content.Rows) == 0 {
+		if len(t.content.Rows) == 0 {
+			t.content.SetRow(t.cursorRow, widget.TextGridRow{})
+			t.cursorCol = 0
+		}
+
+		if r == '\n' {
 			t.cursorRow++
 			t.content.SetRow(t.cursorRow, widget.TextGridRow{})
 			t.cursorCol = 0
+
 			continue
 		}
 
@@ -105,19 +120,25 @@ func (t *Terminal) handleOutput(buf []byte) {
 
 }
 
+func (t *Terminal) Refresh() {
+	t.cursor.Move(fyne.NewPos(9*float32(t.cursorCol)+5, 18*float32(t.cursorRow)+2))
+	t.cursor.Refresh()
+	t.content.Refresh()
+}
+
 func (t *Terminal) start() {
-	buf := make([]byte, 4096)
+	buf := make([]byte, 2048)
 
 	for {
-		time.Sleep(50)
-
 		num, err := t.out.Read(buf)
 		if err != nil {
+			if err != nil {
+				break
+			}
+
 			fyne.LogError("Failed to read pty", err)
 		}
 		t.handleOutput(buf[:num])
-		if num < 4096 {
-			t.content.Refresh()
-		}
+		t.Refresh()
 	}
 }
