@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+
+	"github.com/faiface/pixel/pixelgl"
 )
 
 func main() {
@@ -13,8 +15,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ui := setupUI(t)
-	go t.start()
+	pixelgl.Run(t.run)
 
-	ui.ShowAndRun()
 }

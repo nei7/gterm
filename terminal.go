@@ -1,22 +1,20 @@
 package main
 
 import (
-	"image/color"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 
-	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/widget"
+	"golang.org/x/image/colornames"
+
 	"github.com/creack/pty"
+	"github.com/faiface/pixel"
+	"github.com/faiface/pixel/pixelgl"
 )
 
 type Terminal struct {
-	content   *widget.TextGrid
-	cursor    *canvas.Rectangle
-	cursorRow int
-	cursorCol int
+	cursorRow, cursorCol int
 
 	homedir string
 	title   string
@@ -28,26 +26,14 @@ type Terminal struct {
 
 func NewTerminal() *Terminal {
 
+	home := homeDir()
+
 	t := &Terminal{
-		content: widget.NewTextGrid(),
-		homedir: homeDir(),
-		cursor:  createCursor(),
+
+		homedir: home,
 	}
 
 	return t
-}
-
-func createCursor() *canvas.Rectangle {
-	cursor := canvas.NewRectangle(color.White)
-	cursor.Resize(fyne.Size{
-		Width:  7,
-		Height: 14,
-	})
-	cursor.FillColor = color.Transparent
-	cursor.StrokeColor = color.White
-	cursor.StrokeWidth = 1.7
-
-	return cursor
 }
 
 func homeDir() string {
@@ -77,68 +63,39 @@ func (t *Terminal) startPty() error {
 	return nil
 }
 
-func (t *Terminal) handleOutput(buf []byte) {
+func (t *Terminal) run() {
+	buf := make([]byte, 4096)
+	ui := NewUI()
 
-	for _, r := range []rune(string(buf)) {
+	for !ui.window.Closed() {
+		ui.window.Clear(colornames.Black)
 
-		if r == '\r' {
-			continue
-		}
-
-		if r == asciiBell {
-			break
-		}
-
-		if len(t.content.Rows) == 0 {
-			t.content.SetRow(t.cursorRow, widget.TextGridRow{})
-			t.cursorCol = 0
-		}
-
-		if r == '\n' {
-			t.cursorRow++
-			t.content.SetRow(t.cursorRow, widget.TextGridRow{})
-			t.cursorCol = 0
-
-			continue
-		}
-
-		if r == asciiBackspace {
-			t.cursorCol--
-
-			row := t.content.Rows[t.cursorRow]
-			row.Cells = row.Cells[:t.cursorCol]
-
-			t.content.SetRow(t.cursorRow, row)
-			continue
-		}
-		t.content.SetCell(t.cursorRow, t.cursorCol, widget.TextGridCell{
-			Rune: r,
-		})
-
-		t.cursorCol++
-	}
-
-}
-
-func (t *Terminal) Refresh() {
-	t.cursor.Move(fyne.NewPos(9*float32(t.cursorCol)+5, 18*float32(t.cursorRow)+2))
-	t.cursor.Refresh()
-	t.content.Refresh()
-}
-
-func (t *Terminal) start() {
-	buf := make([]byte, 2048)
-
-	for {
-		num, err := t.out.Read(buf)
-		if err != nil {
+		go func() {
+			ui.mu.Lock()
+			num, err := t.out.Read(buf)
 			if err != nil {
-				break
+				log.Fatal(err)
 			}
 
-			fyne.LogError("Failed to read pty", err)
+			ui.text.Write(buf[:num])
+
+			ui.mu.Unlock()
+		}()
+
+		t.in.Write([]byte(ui.window.Typed()))
+
+		if ui.window.JustPressed(pixelgl.KeyEnter) {
+
+			t.in.Write([]byte{'\n'})
+
 		}
-		t.handleOutput(buf[:num])
-		t.Refresh()
+		if ui.window.JustPressed(pixelgl.KeyBackspace) {
+			ui.text.Clear()
+		}
+
+		ui.text.Draw(ui.window, pixel.IM)
+
+		ui.window.Update()
+
 	}
 }
