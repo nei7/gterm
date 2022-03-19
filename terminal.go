@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -14,8 +14,10 @@ import (
 )
 
 type Terminal struct {
-	content *widget.TextGrid
-	cursor  *canvas.Rectangle
+	content   *widget.TextGrid
+	cursor    *canvas.Rectangle
+	cursorRow int
+	cursorCol int
 
 	homedir string
 	title   string
@@ -47,13 +49,12 @@ func homeDir() string {
 	return home
 }
 
-func (t *Terminal) setPty() error {
+func (t *Terminal) startPty() error {
 	_ = os.Chdir(t.homedir)
-	env := os.Environ()
-	env = append(env, "TERM=xterm-256color")
 
-	cmd := exec.Command(os.Getenv("SHELL"))
-	cmd.Env = env
+	os.Setenv("TERM", "dumb")
+	cmd := exec.Command("/bin/bash")
+
 	pt, err := pty.Start(cmd)
 	if err != nil {
 		return err
@@ -69,26 +70,51 @@ func (t *Terminal) setPty() error {
 func (t *Terminal) handleOutput(buf []byte) {
 	str := string(buf)
 
-	fmt.Println(str)
-
-	t.content.Rows = append(t.content.Rows, widget.TextGridRow{})
 	for _, r := range []rune(str) {
 
-		t.content.Rows[len(t.content.Rows)-1].Cells = append(t.content.Rows[0].Cells, widget.TextGridCell{
+		if r == '\r' {
+			continue
+		}
+
+		if r == asciiBell {
+			break
+		}
+
+		if r == '\n' || len(t.content.Rows) == 0 {
+			t.cursorRow++
+			t.content.SetRow(t.cursorRow, widget.TextGridRow{})
+			t.cursorCol = 0
+			continue
+		}
+
+		if r == asciiBackspace {
+			t.cursorCol--
+
+			row := t.content.Rows[t.cursorRow]
+			row.Cells = row.Cells[:t.cursorCol]
+
+			t.content.SetRow(t.cursorRow, row)
+			continue
+		}
+		t.content.SetCell(t.cursorRow, t.cursorCol, widget.TextGridCell{
 			Rune: r,
 		})
+
+		t.cursorCol++
 	}
 
 }
 
 func (t *Terminal) start() {
 	buf := make([]byte, 4096)
+
 	for {
+		time.Sleep(50)
+
 		num, err := t.out.Read(buf)
 		if err != nil {
 			fyne.LogError("Failed to read pty", err)
 		}
-
 		t.handleOutput(buf[:num])
 		if num < 4096 {
 			t.content.Refresh()
