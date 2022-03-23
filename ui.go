@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"sync"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
@@ -10,20 +9,11 @@ import (
 	"golang.org/x/image/font/basicfont"
 )
 
-type UI struct {
-	mu     sync.Mutex
-	window *pixelgl.Window
-	text   *text.Text
-}
+const (
+	fontSize = 15
+)
 
-func NewUI() *UI {
-	w := createWindow()
-
-	ui := &UI{window: w}
-	ui.loadFont()
-
-	return ui
-}
+var screenHeight float64
 
 func createWindow() *pixelgl.Window {
 	cfg := pixelgl.WindowConfig{
@@ -40,12 +30,14 @@ func createWindow() *pixelgl.Window {
 	return win
 }
 
-func (ui *UI) loadFont() {
-	face, err := loadTTF("/usr/share/fonts/TTF/Sauce Code Pro Nerd Font Complete.ttf", 20)
+func (t *Terminal) loadFont() {
+	face, err := loadTTF("/usr/share/fonts/TTF/Sauce Code Pro Nerd Font Complete.ttf", 15)
 	if err != nil {
 		face = basicfont.Face7x13
 	}
 	atlas := text.NewAtlas(face, text.ASCII)
-	text := text.New(pixel.V(10, ui.window.Canvas().Bounds().H()-30), atlas)
-	ui.text = text
+
+	screenHeight = t.window.Canvas().Bounds().H()
+	text := text.New(pixel.V(5, screenHeight-20), atlas)
+	t.text = text
 }

@@ -30,3 +30,25 @@ func loadTTF(path string, size float64) (font.Face, error) {
 		GlyphCacheEntries: 1,
 	}), nil
 }
+
+func calcOffset(len, offset int) (startOffset int, endOffset int) {
+	if offset > len {
+		startOffset = len
+	} else {
+		startOffset = offset
+	}
+
+	if offset > 0 {
+
+		endOffset = offset + (int(screenHeight) / (fontSize + 3)) - 3
+		if endOffset > len {
+			endOffset = len
+			return
+		}
+
+		return
+	}
+
+	endOffset = len
+	return
+}

@@ -15,6 +15,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	pixelgl.Run(t.run)
+	pixelgl.Run(t.runUI)
 
 }
