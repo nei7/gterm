@@ -9,7 +9,7 @@ import (
 func main() {
 
 	t := NewTerminal()
-
+	
 	err := t.startPty()
 	if err != nil {
 		log.Fatal(err)

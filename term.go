@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"sync"
 
 	"golang.org/x/image/colornames"
+	"golang.org/x/image/font/basicfont"
 
 	"github.com/creack/pty"
 	"github.com/faiface/pixel"
@@ -16,14 +18,13 @@ import (
 )
 
 type Terminal struct {
-	mu     sync.Mutex
-	window *pixelgl.Window
-	text   *text.Text
+	mu   sync.Mutex
+	text *text.Text
 
-	content [][]rune
-	lines   int
-
-	offsetY int
+	content      [][]rune
+	lines        int
+	offsetY      int
+	screenHeight float64
 
 	homedir string
 	title   string
@@ -31,15 +32,21 @@ type Terminal struct {
 	pty io.Closer
 	in  io.Writer
 	out io.Reader
+
+	config *Config
 }
 
 func NewTerminal() *Terminal {
+	t := &Terminal{}
 
-	home := homeDir()
-
-	t := &Terminal{
-		homedir: home,
+	config, err := LoadConfig()
+	if err != nil {
+		log.Fatalf("failed to load config: %w", err)
 	}
+
+	t.config = config
+
+	t.homedir = homeDir()
 
 	return t
 }
@@ -56,7 +63,7 @@ func homeDir() string {
 func (t *Terminal) startPty() error {
 	_ = os.Chdir(t.homedir)
 
-	os.Setenv("TERM", "gterm")
+	os.Setenv("TERM", "xterm-256color")
 	cmd := exec.Command("/bin/bash")
 
 	pt, err := pty.Start(cmd)
@@ -73,29 +80,41 @@ func (t *Terminal) startPty() error {
 
 func (t *Terminal) renderContent() {
 	t.text.Clear()
-
-	startOffset, endOffset := calcOffset(len(t.content), t.offsetY)
+	startOffset, endOffset := calcOffset(len(t.content), t.offsetY, int(t.screenHeight), int(t.config.Font.Size))
 	for _, line := range t.content[startOffset:endOffset] {
 		for _, r := range line {
 			t.text.WriteRune(r)
-
 		}
 		t.text.WriteRune('\n')
 	}
 }
 
 func (t *Terminal) runUI() {
+	win, err := pixelgl.NewWindow(pixelgl.WindowConfig{
+		Title:     "gterm",
+		Bounds:    pixel.R(0, 0, 1024, 768),
+		VSync:     true,
+		Resizable: true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	face, err := loadTTF(fmt.Sprintf("/usr/share/fonts/TTF/%s.ttf", t.config.Font.Family), t.config.Font.Size)
+	if err != nil {
+		face = basicfont.Face7x13
+	}
+	atlas := text.NewAtlas(face, text.ASCII)
+
+	t.screenHeight = win.Bounds().H()
+	t.text = text.New(pixel.V(5, t.screenHeight-20), atlas)
+
 	buf := make([]byte, 4096)
-	t.window = createWindow()
+	for !win.Closed() {
+		win.Clear(colornames.Black)
 
-	t.loadFont()
-
-	for !t.window.Closed() {
-
-		t.window.Clear(colornames.Black)
-
-		h := (int(screenHeight)/(fontSize+3) - 3)
-		if scroll := int(t.window.MouseScroll().Y); t.offsetY-scroll >= 0 && t.offsetY-scroll <= len(t.content)-h {
+		h := (int(t.screenHeight)/(int(t.config.Font.Size)+3) - 3)
+		if scroll := int(win.MouseScroll().Y); t.offsetY-scroll >= 0 && t.offsetY-scroll <= len(t.content)-h {
 			t.offsetY -= scroll
 		}
 
@@ -112,19 +131,18 @@ func (t *Terminal) runUI() {
 			t.mu.Unlock()
 		}()
 
-		t.in.Write([]byte(t.window.Typed()))
+		t.in.Write([]byte(win.Typed()))
 
-		if t.window.JustPressed(pixelgl.KeyBackspace) {
+		if win.JustPressed(pixelgl.KeyBackspace) {
 			t.in.Write([]byte{asciiBackspace})
 		}
-		if t.window.JustPressed(pixelgl.KeyEnter) {
+		if win.JustPressed(pixelgl.KeyEnter) {
 			t.in.Write([]byte{'\n'})
-
 		}
 
 		t.renderContent()
-		t.text.Draw(t.window, pixel.IM)
+		t.text.Draw(win, pixel.IM)
 
-		t.window.Update()
+		win.Update()
 	}
 }
