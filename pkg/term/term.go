@@ -2,36 +2,35 @@ package term
 
 import (
 	"fmt"
-	"image/color"
 	"log"
+	"os"
 
 	"golang.org/x/image/colornames"
 	"golang.org/x/image/font"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
-	"github.com/faiface/pixel/text"
-)
 
-type char struct {
-	r       rune
-	fgColor color.Color
-	bgColor color.Color
-}
+	atlas "github.com/faiface/pixel/text"
+	"github.com/nei7/gterm/pkg/term/text"
+)
 
 type Terminal struct {
 	window  *pixelgl.Window
 	text    *text.Text
 	font    font.Face
-	content []char
+	content []text.Char
+
+	pty *os.File
 
 	cursorPos int
-	offsetY   int
 
 	height float64
 	width  float64
 
 	title string
+
+	config *Config
 }
 
 func New() *Terminal {
@@ -49,6 +48,64 @@ func New() *Terminal {
 		log.Fatal(err)
 	}
 
+	atlas := atlas.NewAtlas(face, atlas.ASCII)
+	text := text.New(pixel.Vec{
+		X: config.Window.Padding.X,
+		Y: t.height - config.Window.Padding.Y,
+	}, atlas)
+
+	t.config = config
+	t.text = text
+	t.font = face
+
+	return t
+}
+
+func (t *Terminal) setupWindow(w *pixelgl.Window) {
+	windowSize := w.Bounds().Size()
+	t.width = windowSize.X
+	t.height = windowSize.Y
+	t.window = w
+}
+
+func (t *Terminal) input() {
+	typed := t.window.Typed()
+
+	if typed != "" {
+
+		runes := []rune(typed)
+		for _, r := range runes {
+			t.text.Chars = append(t.content, text.Char{
+				Id:      t.cursorPos,
+				FgColor: colornames.Azure,
+				R:       r,
+			})
+			t.text.DrawBuf()
+
+		}
+
+		t.cursorPos++
+	}
+
+}
+
+func (t *Terminal) draw() {
+
+	cols := int(t.width / t.text.LineHeight)
+	rows := int(t.height / t.text.TabWidth)
+	i := 0
+	for row := 0; row < rows; row++ {
+		for col := 0; col < cols; col++ {
+			if i >= len(t.content) {
+				return
+			}
+			i++
+		}
+	}
+
+}
+
+func (t *Terminal) Run() {
 	win, err := pixelgl.NewWindow(pixelgl.WindowConfig{
 		Title:     "gterm",
 		Bounds:    pixel.R(0, 0, 1024, 768),
@@ -58,37 +115,15 @@ func New() *Terminal {
 	if err != nil {
 		log.Fatal(err)
 	}
+	t.setupWindow(win)
 
-	atlas := text.NewAtlas(face, text.ASCII)
-	text := text.New(pixel.Vec{
-		X: config.Window.Padding.X,
-		Y: config.Window.Padding.Y,
-	}, atlas)
+	for !win.Closed() {
+		win.Clear(colornames.Black)
 
-	t.text = text
-	t.window = win
-	t.font = face
+		t.input()
+		t.draw()
 
-	windowSize := win.Bounds().Size()
-	t.width = windowSize.X
-	t.height = windowSize.Y
-
-	return t
-}
-
-func (t *Terminal) Write() {
-
-}
-
-func (t *Terminal) Update() {
-
-	for !t.window.Closed() {
-		t.window.Clear(colornames.Black)
-
-		t.window.Update()
+		t.text.Draw(t.window, pixel.IM)
+		win.Update()
 	}
-}
-
-func (t *Terminal) Run() {
-
 }

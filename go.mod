@@ -7,6 +7,7 @@ require (
 	github.com/faiface/pixel v0.10.0
 	github.com/goki/freetype v0.0.0-20181231101311-fa8a33aabaff
 	golang.org/x/image v0.0.0-20200430140353-33d19683fad8
+	gopkg.in/yaml.v2 v2.2.8
 )
 
 require (
@@ -18,5 +19,4 @@ require (
 	github.com/go-gl/mathgl v0.0.0-20190416160123-c4601bc793c7 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/stretchr/testify v1.5.1 // indirect
-	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
