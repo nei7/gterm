@@ -1,4 +1,4 @@
-package main
+package term
 
 import (
 	"fmt"
@@ -10,16 +10,21 @@ import (
 )
 
 type Config struct {
-	Background string `yaml:"background"`
-	Font       Font   `yaml:"font"`
+	Window struct {
+		Background string `yaml:"background"`
+		Padding    struct {
+			X float64 `yaml:"x"`
+			Y float64 `yaml:"y"`
+		}
+	}
+
+	Font struct {
+		Family string  `yaml:"family"`
+		Size   float64 `yaml:"size"`
+	} `yaml:"font"`
 }
 
-type Font struct {
-	Family string  `yaml:"family"`
-	Size   float64 `yaml:"size"`
-}
-
-func LoadConfig() (*Config, error) {
+func loadConfig() (*Config, error) {
 	configPath, err := os.UserConfigDir()
 	if err != nil {
 		return nil, err

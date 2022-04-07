@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"io/ioutil"
@@ -8,27 +8,14 @@ import (
 	"golang.org/x/image/font"
 )
 
-func loadTTF(path string, size float64) (font.Face, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
 
-	bytes, err := ioutil.ReadAll(file)
+func homeDir() string {
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, err
+		return ""
 	}
 
-	font, err := truetype.Parse(bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return truetype.NewFace(font, &truetype.Options{
-		Size:              size,
-		GlyphCacheEntries: 1,
-	}), nil
+	return home
 }
 
 func calcOffset(len, offset, screenHeight, fontSize int) (startOffset int, endOffset int) {

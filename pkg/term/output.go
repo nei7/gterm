@@ -1,6 +1,7 @@
 package main
 
 func (t *Terminal) handleOutput(out []byte) {
+
 	for _, r := range []rune(string(out)) {
 
 		if t.lines >= len(t.content) {
