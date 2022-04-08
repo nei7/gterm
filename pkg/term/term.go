@@ -76,16 +76,22 @@ func (t *Terminal) setupWindow(w *pixelgl.Window) {
 }
 
 func (t *Terminal) input() {
-	if t.window.JustPressed(pixelgl.KeyEnter) {
+	switch {
+	case t.window.JustPressed(pixelgl.KeyEnter):
 		t.pty.Write([]byte{'\n'})
-		return
-	}
+	case t.window.JustReleased(pixelgl.KeyTab):
+		t.pty.Write([]byte{'\t'})
 
-	typed := t.window.Typed()
+	case t.window.JustPressed(pixelgl.KeyBackspace):
+		t.pty.Write([]byte{8})
 
-	if typed != "" {
-		t.pty.Write([]byte(typed))
-		t.cursorPos++
+	default:
+		typed := t.window.Typed()
+
+		if typed != "" {
+			t.pty.Write([]byte(typed))
+			t.cursorPos++
+		}
 	}
 }
 
@@ -113,6 +119,7 @@ func (t *Terminal) readPty() {
 		}
 
 		t.text.Write(buf[:num])
+
 	}
 }
 

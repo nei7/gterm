@@ -7,7 +7,6 @@ import (
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/text"
-	"golang.org/x/image/colornames"
 )
 
 type Char struct {
@@ -19,7 +18,7 @@ type Char struct {
 
 // Stolen from https://github.com/faiface/pixel/blob/master/text/text.go
 type Text struct {
-	sync.Mutex
+	sync.RWMutex
 
 	chars []Char
 	Orig  pixel.Vec
@@ -50,17 +49,17 @@ func New(orig pixel.Vec, atlas *text.Atlas) *Text {
 	txt := &Text{
 		Orig:       orig,
 		Dot:        orig,
-		Color:      pixel.ToRGBA(colornames.Cyan),
+		Color:      pixel.Alpha(1),
 		LineHeight: atlas.LineHeight(),
 		TabWidth:   atlas.Glyph(' ').Advance * 4,
 		atlas:      atlas,
 		mat:        pixel.IM,
-		col:        pixel.ToRGBA(colornames.Cyan),
+		col:        pixel.Alpha(1),
 	}
 
 	txt.glyph.SetLen(6)
 	for i := range txt.glyph {
-		txt.glyph[i].Color = pixel.ToRGBA(colornames.Cyan)
+		txt.glyph[i].Color = pixel.Alpha(1)
 		txt.glyph[i].Intensity = 1
 	}
 
@@ -73,15 +72,12 @@ func New(orig pixel.Vec, atlas *text.Atlas) *Text {
 }
 
 func (txt *Text) Write(buf []byte) {
-	runes := []rune(string(buf))
-	for _, r := range runes {
-		txt.chars = append(txt.chars, Char{
-			R: r,
-		})
-	}
+	txt.Lock()
+	defer txt.Unlock()
+
+	txt.handleOutput(buf)
 
 	txt.drawBuf()
-
 }
 
 func (txt *Text) Atlas() *text.Atlas {
@@ -128,6 +124,8 @@ func (txt *Text) Clear() {
 }
 
 func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix) {
+	txt.RLock()
+	defer txt.RUnlock()
 
 	if matrix != txt.mat {
 		txt.mat = matrix
@@ -165,6 +163,11 @@ func (txt *Text) controlRune(r rune, dot pixel.Vec) (newDot pixel.Vec, control b
 			rem = txt.TabWidth
 		}
 		dot.X += rem
+	case 7:
+		// bell
+	case 8:
+		txt.chars = txt.chars[:len(txt.chars)-2]
+
 	default:
 		return dot, false
 	}
@@ -173,15 +176,7 @@ func (txt *Text) controlRune(r rune, dot pixel.Vec) (newDot pixel.Vec, control b
 
 func (txt *Text) drawBuf() {
 
-	txt.Lock()
-	defer txt.Unlock()
-
 	txt.Clear()
-
-	rgba := pixel.ToRGBA(colornames.Blanchedalmond)
-	for i := range txt.glyph {
-		txt.glyph[i].Color = rgba
-	}
 
 	for _, ch := range txt.chars {
 
@@ -189,6 +184,10 @@ func (txt *Text) drawBuf() {
 		txt.Dot, control = txt.controlRune(ch.R, txt.Dot)
 		if control {
 			continue
+		}
+
+		for i := range txt.glyph {
+			txt.glyph[i].Color = pixel.ToRGBA(ch.FgColor)
 		}
 
 		var rect, frame, bounds pixel.Rect
