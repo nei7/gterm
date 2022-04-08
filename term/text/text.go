@@ -16,12 +16,16 @@ type Char struct {
 	BgColor color.Color
 }
 
-// Stolen from https://github.com/faiface/pixel/blob/master/text/text.go
+// https://github.com/faiface/pixel/blob/master/text/text.go
 type Text struct {
 	sync.RWMutex
 
-	chars []Char
+	chars [][]Char
 	Orig  pixel.Vec
+
+	cols         int
+	rows         int
+	scrollOffset int
 
 	Dot pixel.Vec
 
@@ -71,13 +75,18 @@ func New(orig pixel.Vec, atlas *text.Atlas) *Text {
 	return txt
 }
 
+func (txt *Text) SetSize(rows, cols int) {
+	txt.rows = rows
+	txt.cols = cols
+}
+
 func (txt *Text) Write(buf []byte) {
 	txt.Lock()
 	defer txt.Unlock()
 
 	txt.handleOutput(buf)
-
-	txt.drawBuf()
+	txt.ScrollDown()
+	txt.drawBuff()
 }
 
 func (txt *Text) Atlas() *text.Atlas {
@@ -113,6 +122,27 @@ func (txt *Text) BoundsOf(s string) pixel.Rect {
 	}
 
 	return bounds
+}
+
+func (txt *Text) Scroll(speed int) {
+	if txt.scrollOffset-speed >= 0 {
+
+		if txt.scrollOffset-speed+txt.rows > len(txt.chars) {
+			return
+		}
+
+		txt.scrollOffset -= speed
+	}
+
+	txt.drawBuff()
+}
+
+func (txt *Text) ScrollDown() {
+	txt.scrollOffset = len(txt.chars) - txt.rows
+	if txt.scrollOffset < 0 {
+		txt.scrollOffset = 0
+	}
+
 }
 
 func (txt *Text) Clear() {
@@ -151,9 +181,6 @@ func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix) {
 
 func (txt *Text) controlRune(r rune, dot pixel.Vec) (newDot pixel.Vec, control bool) {
 	switch r {
-	case '\n':
-		dot.X = txt.Orig.X
-		dot.Y -= txt.LineHeight
 	case '\r':
 		dot.X = txt.Orig.X
 	case '\t':
@@ -163,10 +190,6 @@ func (txt *Text) controlRune(r rune, dot pixel.Vec) (newDot pixel.Vec, control b
 			rem = txt.TabWidth
 		}
 		dot.X += rem
-	case 7:
-		// bell
-	case 8:
-		txt.chars = txt.chars[:len(txt.chars)-2]
 
 	default:
 		return dot, false
@@ -174,54 +197,64 @@ func (txt *Text) controlRune(r rune, dot pixel.Vec) (newDot pixel.Vec, control b
 	return dot, true
 }
 
-func (txt *Text) drawBuf() {
+func (txt *Text) drawBuff() {
 
 	txt.Clear()
 
-	for _, ch := range txt.chars {
+	endOff := txt.scrollOffset + txt.rows
+	if endOff > len(txt.chars) {
+		endOff = len(txt.chars)
+	}
 
-		var control bool
-		txt.Dot, control = txt.controlRune(ch.R, txt.Dot)
-		if control {
-			continue
+	for _, lines := range txt.chars[txt.scrollOffset:endOff] {
+		for _, ch := range lines {
+			var control bool
+			txt.Dot, control = txt.controlRune(ch.R, txt.Dot)
+			if control {
+				continue
+			}
+
+			for i := range txt.glyph {
+				txt.glyph[i].Color = pixel.ToRGBA(ch.FgColor)
+			}
+
+			var rect, frame, bounds pixel.Rect
+			rect, frame, bounds, txt.Dot = txt.Atlas().DrawRune(txt.prevR, ch.R, txt.Dot)
+
+			txt.prevR = ch.R
+
+			rv := [...]pixel.Vec{
+				{X: rect.Min.X, Y: rect.Min.Y},
+				{X: rect.Max.X, Y: rect.Min.Y},
+				{X: rect.Max.X, Y: rect.Max.Y},
+				{X: rect.Min.X, Y: rect.Max.Y},
+			}
+
+			fv := [...]pixel.Vec{
+				{X: frame.Min.X, Y: frame.Min.Y},
+				{X: frame.Max.X, Y: frame.Min.Y},
+				{X: frame.Max.X, Y: frame.Max.Y},
+				{X: frame.Min.X, Y: frame.Max.Y},
+			}
+
+			for i, j := range [...]int{0, 1, 2, 0, 2, 3} {
+				txt.glyph[i].Position = rv[j]
+				txt.glyph[i].Picture = fv[j]
+			}
+
+			txt.tris = append(txt.tris, txt.glyph...)
+			txt.dirty = true
+
+			if txt.bounds.W()*txt.bounds.H() == 0 {
+				txt.bounds = bounds
+			} else {
+				txt.bounds = txt.bounds.Union(bounds)
+			}
 		}
 
-		for i := range txt.glyph {
-			txt.glyph[i].Color = pixel.ToRGBA(ch.FgColor)
-		}
+		txt.Dot.X = txt.Orig.X
+		txt.Dot.Y -= txt.LineHeight
 
-		var rect, frame, bounds pixel.Rect
-		rect, frame, bounds, txt.Dot = txt.Atlas().DrawRune(txt.prevR, ch.R, txt.Dot)
-
-		txt.prevR = ch.R
-
-		rv := [...]pixel.Vec{
-			{X: rect.Min.X, Y: rect.Min.Y},
-			{X: rect.Max.X, Y: rect.Min.Y},
-			{X: rect.Max.X, Y: rect.Max.Y},
-			{X: rect.Min.X, Y: rect.Max.Y},
-		}
-
-		fv := [...]pixel.Vec{
-			{X: frame.Min.X, Y: frame.Min.Y},
-			{X: frame.Max.X, Y: frame.Min.Y},
-			{X: frame.Max.X, Y: frame.Max.Y},
-			{X: frame.Min.X, Y: frame.Max.Y},
-		}
-
-		for i, j := range [...]int{0, 1, 2, 0, 2, 3} {
-			txt.glyph[i].Position = rv[j]
-			txt.glyph[i].Picture = fv[j]
-		}
-
-		txt.tris = append(txt.tris, txt.glyph...)
-		txt.dirty = true
-
-		if txt.bounds.W()*txt.bounds.H() == 0 {
-			txt.bounds = bounds
-		} else {
-			txt.bounds = txt.bounds.Union(bounds)
-		}
 	}
 
 }

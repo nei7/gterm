@@ -11,8 +11,8 @@ import (
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
 
-	"github.com/nei7/gterm/pkg/term/text"
-	"github.com/nei7/gterm/pkg/util"
+	"github.com/nei7/gterm/term/text"
+	"github.com/nei7/gterm/util"
 
 	atlas "github.com/faiface/pixel/text"
 )
@@ -23,8 +23,6 @@ type Terminal struct {
 	font   font.Face
 
 	pty io.ReadWriter
-
-	cursorPos int
 
 	height float64
 	width  float64
@@ -63,8 +61,8 @@ func New() *Terminal {
 
 func (t *Terminal) setupWindow(w *pixelgl.Window) {
 	windowSize := w.Bounds().Size()
-	t.width = windowSize.X
-	t.height = windowSize.Y
+	t.width = windowSize.X - t.config.Window.Padding.X
+	t.height = windowSize.Y - t.config.Window.Padding.Y
 	t.window = w
 
 	atlas := atlas.NewAtlas(t.font, atlas.ASCII)
@@ -73,12 +71,24 @@ func (t *Terminal) setupWindow(w *pixelgl.Window) {
 		X: t.config.Window.Padding.X,
 		Y: t.height - atlas.Ascent() - t.config.Window.Padding.Y,
 	}, atlas)
+
+	cols := int(t.width / t.text.LineHeight)
+	rows := int(t.height / (t.text.LineHeight))
+
+	t.text.SetSize(rows, cols)
+
 }
 
 func (t *Terminal) input() {
+	scroll := t.window.MouseScroll()
+
 	switch {
+	case scroll.Y != 0:
+		t.text.Scroll(int(scroll.Y))
+
 	case t.window.JustPressed(pixelgl.KeyEnter):
 		t.pty.Write([]byte{'\n'})
+
 	case t.window.JustReleased(pixelgl.KeyTab):
 		t.pty.Write([]byte{'\t'})
 
@@ -90,23 +100,9 @@ func (t *Terminal) input() {
 
 		if typed != "" {
 			t.pty.Write([]byte(typed))
-			t.cursorPos++
+
 		}
 	}
-}
-
-func (t *Terminal) draw() {
-
-	cols := int(t.width / t.text.LineHeight)
-	rows := int(t.height / t.text.TabWidth)
-	i := 0
-	for row := 0; row < rows; row++ {
-		for col := 0; col < cols; col++ {
-
-			i++
-		}
-	}
-
 }
 
 func (t *Terminal) readPty() {
@@ -142,7 +138,6 @@ func (t *Terminal) Run() {
 		win.Clear(colornames.Black)
 
 		t.input()
-		t.draw()
 
 		t.text.Draw(t.window, pixel.IM)
 		win.Update()

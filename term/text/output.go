@@ -25,10 +25,14 @@ func (txt *Text) handleOutput(out []byte) {
 	for _, r := range runes {
 
 		switch {
+		case r == '\n':
+			txt.chars = append(txt.chars, []Char{})
 		case r == 7:
 			// bell
 		case r == 8:
-			txt.chars = txt.chars[:len(txt.chars)-1]
+			lines := len(txt.chars) - 1
+
+			txt.chars[lines] = txt.chars[lines][:len(txt.chars[lines])-1]
 		case r == 27:
 			state.parseMode = true
 		case r == '[' && state.parseMode:
@@ -82,7 +86,13 @@ func (txt *Text) handleOutput(out []byte) {
 			if char.FgColor == nil {
 				char.FgColor = colornames.White
 			}
-			txt.chars = append(txt.chars, char)
+			lines := len(txt.chars)
+
+			if lines == 0 {
+				txt.chars = append(txt.chars, []Char{})
+			}
+
+			txt.chars[len(txt.chars)-1] = append(txt.chars[len(txt.chars)-1], char)
 
 		}
 	}
