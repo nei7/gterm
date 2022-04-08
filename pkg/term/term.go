@@ -2,8 +2,8 @@ package term
 
 import (
 	"fmt"
+	"io"
 	"log"
-	"os"
 
 	"golang.org/x/image/colornames"
 	"golang.org/x/image/font"
@@ -11,17 +11,18 @@ import (
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
 
-	atlas "github.com/faiface/pixel/text"
 	"github.com/nei7/gterm/pkg/term/text"
+	"github.com/nei7/gterm/pkg/util"
+
+	atlas "github.com/faiface/pixel/text"
 )
 
 type Terminal struct {
-	window  *pixelgl.Window
-	text    *text.Text
-	font    font.Face
-	content []text.Char
+	window *pixelgl.Window
+	text   *text.Text
+	font   font.Face
 
-	pty *os.File
+	pty io.ReadWriter
 
 	cursorPos int
 
@@ -48,14 +49,13 @@ func New() *Terminal {
 		log.Fatal(err)
 	}
 
-	atlas := atlas.NewAtlas(face, atlas.ASCII)
-	text := text.New(pixel.Vec{
-		X: config.Window.Padding.X,
-		Y: t.height - config.Window.Padding.Y,
-	}, atlas)
+	pty, err := startPty(util.GetHomeDir())
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	t.pty = pty
 	t.config = config
-	t.text = text
 	t.font = face
 
 	return t
@@ -66,27 +66,27 @@ func (t *Terminal) setupWindow(w *pixelgl.Window) {
 	t.width = windowSize.X
 	t.height = windowSize.Y
 	t.window = w
+
+	atlas := atlas.NewAtlas(t.font, atlas.ASCII)
+
+	t.text = text.New(pixel.Vec{
+		X: t.config.Window.Padding.X,
+		Y: t.height - atlas.Ascent() - t.config.Window.Padding.Y,
+	}, atlas)
 }
 
 func (t *Terminal) input() {
+	if t.window.JustPressed(pixelgl.KeyEnter) {
+		t.pty.Write([]byte{'\n'})
+		return
+	}
+
 	typed := t.window.Typed()
 
 	if typed != "" {
-
-		runes := []rune(typed)
-		for _, r := range runes {
-			t.text.Chars = append(t.content, text.Char{
-				Id:      t.cursorPos,
-				FgColor: colornames.Azure,
-				R:       r,
-			})
-			t.text.DrawBuf()
-
-		}
-
+		t.pty.Write([]byte(typed))
 		t.cursorPos++
 	}
-
 }
 
 func (t *Terminal) draw() {
@@ -96,13 +96,24 @@ func (t *Terminal) draw() {
 	i := 0
 	for row := 0; row < rows; row++ {
 		for col := 0; col < cols; col++ {
-			if i >= len(t.content) {
-				return
-			}
+
 			i++
 		}
 	}
 
+}
+
+func (t *Terminal) readPty() {
+	buf := make([]byte, 2048)
+	for {
+		num, err := t.pty.Read(buf)
+		if err != nil {
+			log.Printf("failed to read from pty: %v \n", err)
+			break
+		}
+
+		t.text.Write(buf[:num])
+	}
 }
 
 func (t *Terminal) Run() {
@@ -115,7 +126,10 @@ func (t *Terminal) Run() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	t.setupWindow(win)
+
+	go t.readPty()
 
 	for !win.Closed() {
 		win.Clear(colornames.Black)

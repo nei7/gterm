@@ -3,9 +3,11 @@ package text
 import (
 	"image/color"
 	"math"
+	"sync"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/text"
+	"golang.org/x/image/colornames"
 )
 
 type Char struct {
@@ -15,9 +17,11 @@ type Char struct {
 	BgColor color.Color
 }
 
-// Stolen on https://github.com/faiface/pixel/blob/master/text/text.go
+// Stolen from https://github.com/faiface/pixel/blob/master/text/text.go
 type Text struct {
-	Chars []Char
+	sync.Mutex
+
+	chars []Char
 	Orig  pixel.Vec
 
 	Dot pixel.Vec
@@ -46,17 +50,17 @@ func New(orig pixel.Vec, atlas *text.Atlas) *Text {
 	txt := &Text{
 		Orig:       orig,
 		Dot:        orig,
-		Color:      pixel.Alpha(1),
+		Color:      pixel.ToRGBA(colornames.Cyan),
 		LineHeight: atlas.LineHeight(),
 		TabWidth:   atlas.Glyph(' ').Advance * 4,
 		atlas:      atlas,
 		mat:        pixel.IM,
-		col:        pixel.Alpha(1),
+		col:        pixel.ToRGBA(colornames.Cyan),
 	}
 
 	txt.glyph.SetLen(6)
 	for i := range txt.glyph {
-		txt.glyph[i].Color = pixel.Alpha(1)
+		txt.glyph[i].Color = pixel.ToRGBA(colornames.Cyan)
 		txt.glyph[i].Intensity = 1
 	}
 
@@ -66,6 +70,18 @@ func New(orig pixel.Vec, atlas *text.Atlas) *Text {
 	txt.Clear()
 
 	return txt
+}
+
+func (txt *Text) Write(buf []byte) {
+	runes := []rune(string(buf))
+	for _, r := range runes {
+		txt.chars = append(txt.chars, Char{
+			R: r,
+		})
+	}
+
+	txt.drawBuf()
+
 }
 
 func (txt *Text) Atlas() *text.Atlas {
@@ -120,6 +136,7 @@ func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix) {
 
 	if txt.dirty {
 		txt.trans.SetLen(txt.tris.Len())
+
 		txt.trans.Update(&txt.tris)
 
 		for i := range txt.trans {
@@ -154,11 +171,19 @@ func (txt *Text) controlRune(r rune, dot pixel.Vec) (newDot pixel.Vec, control b
 	return dot, true
 }
 
-func (txt *Text) DrawBuf() {
+func (txt *Text) drawBuf() {
 
-	for i, ch := range txt.Chars {
-		rgba := pixel.ToRGBA(ch.FgColor)
+	txt.Lock()
+	defer txt.Unlock()
+
+	txt.Clear()
+
+	rgba := pixel.ToRGBA(colornames.Blanchedalmond)
+	for i := range txt.glyph {
 		txt.glyph[i].Color = rgba
+	}
+
+	for _, ch := range txt.chars {
 
 		var control bool
 		txt.Dot, control = txt.controlRune(ch.R, txt.Dot)
@@ -199,4 +224,5 @@ func (txt *Text) DrawBuf() {
 			txt.bounds = txt.bounds.Union(bounds)
 		}
 	}
+
 }

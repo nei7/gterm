@@ -1,1 +1,3 @@
 package term
+
+func handleOutput() {}
