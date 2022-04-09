@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"golang.org/x/image/colornames"
 	"golang.org/x/image/font"
@@ -134,6 +135,7 @@ func (t *Terminal) Run() {
 
 	go t.readPty()
 
+	fps := time.Tick(time.Second / 60)
 	for !win.Closed() {
 		win.Clear(colornames.Black)
 
@@ -141,5 +143,7 @@ func (t *Terminal) Run() {
 
 		t.text.Draw(t.window, pixel.IM)
 		win.Update()
+
+		<-fps
 	}
 }

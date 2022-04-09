@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/faiface/pixel/pixelgl"
-	"github.com/nei7/gterm/pkg/term"
+	"github.com/nei7/gterm/term"
 )
 
 func main() {
