@@ -1,4 +1,4 @@
-package text
+package term
 
 import (
 	"log"
@@ -17,7 +17,9 @@ type parseState struct {
 	s string
 }
 
-func (txt *Text) handleOutput(out []byte) {
+func (buf *Buffer) Write(out []byte) {
+	buf.Lock()
+	defer buf.Unlock()
 	state := parseState{}
 
 	runes := []rune(string(out))
@@ -26,13 +28,14 @@ func (txt *Text) handleOutput(out []byte) {
 
 		switch {
 		case r == '\n':
-			txt.chars = append(txt.chars, []Char{})
+			buf.insertLine(Line{})
 		case r == 7:
 			// bell
 		case r == 8:
-			lines := len(txt.chars) - 1
-
-			txt.chars[lines] = txt.chars[lines][:len(txt.chars[lines])-1]
+			index := len(buf.lines) - 1
+			if index >= 0 {
+				buf.lines[index].pop()
+			}
 		case r == 27:
 			state.parseMode = true
 		case r == '[' && state.parseMode:
@@ -40,7 +43,6 @@ func (txt *Text) handleOutput(out []byte) {
 			state.csi = true
 		case r == 'm' && state.csi:
 			for _, s := range strings.Split(state.s, ";") {
-
 				switch {
 				case s == "":
 					continue
@@ -86,14 +88,12 @@ func (txt *Text) handleOutput(out []byte) {
 			if char.FgColor == nil {
 				char.FgColor = colornames.White
 			}
-			lines := len(txt.chars)
 
+			lines := len(buf.lines)
 			if lines == 0 {
-				txt.chars = append(txt.chars, []Char{})
+				buf.insertLine(Line{})
 			}
-
-			txt.chars[len(txt.chars)-1] = append(txt.chars[len(txt.chars)-1], char)
-
+			buf.lines[len(buf.lines)-1].push(char)
 		}
 	}
 

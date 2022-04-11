@@ -1,4 +1,4 @@
-package text
+package term
 
 import (
 	"image/color"

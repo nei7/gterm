@@ -1,4 +1,4 @@
-package term
+package config
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ type Config struct {
 	} `yaml:"font"`
 }
 
-func loadConfig() (*Config, error) {
+func LoadConfig() (*Config, error) {
 	configPath, err := os.UserConfigDir()
 	if err != nil {
 		return nil, err

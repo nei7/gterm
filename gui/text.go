@@ -1,39 +1,27 @@
-package text
+package gui
 
 import (
 	"image/color"
+	"io/ioutil"
 	"math"
-	"sync"
+	"os"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/text"
+	"github.com/goki/freetype/truetype"
+	"github.com/nei7/gterm/term"
+	"golang.org/x/image/font"
 )
-
-type Char struct {
-	Id      int
-	R       rune
-	FgColor color.Color
-	BgColor color.Color
-}
 
 // https://github.com/faiface/pixel/blob/master/text/text.go
 type Text struct {
-	sync.RWMutex
-
-	chars [][]Char
-	Orig  pixel.Vec
-
-	cols         int
-	rows         int
-	scrollOffset int
-
-	Dot pixel.Vec
+	Orig pixel.Vec
+	Dot  pixel.Vec
 
 	Color color.Color
 
 	LineHeight float64
-
-	TabWidth float64
+	TabWidth   float64
 
 	atlas *text.Atlas
 
@@ -49,7 +37,7 @@ type Text struct {
 	dirty  bool
 }
 
-func New(orig pixel.Vec, atlas *text.Atlas) *Text {
+func NewText(orig pixel.Vec, atlas *text.Atlas) *Text {
 	txt := &Text{
 		Orig:       orig,
 		Dot:        orig,
@@ -75,18 +63,27 @@ func New(orig pixel.Vec, atlas *text.Atlas) *Text {
 	return txt
 }
 
-func (txt *Text) SetSize(rows, cols int) {
-	txt.rows = rows
-	txt.cols = cols
-}
+func loadTTF(path string, size float64) (font.Face, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
 
-func (txt *Text) Write(buf []byte) {
-	txt.Lock()
-	defer txt.Unlock()
+	bytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
 
-	txt.handleOutput(buf)
-	txt.ScrollDown()
-	txt.drawBuff()
+	font, err := truetype.Parse(bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return truetype.NewFace(font, &truetype.Options{
+		Size:              size,
+		GlyphCacheEntries: 1,
+	}), nil
 }
 
 func (txt *Text) Atlas() *text.Atlas {
@@ -124,27 +121,6 @@ func (txt *Text) BoundsOf(s string) pixel.Rect {
 	return bounds
 }
 
-func (txt *Text) Scroll(speed int) {
-	if txt.scrollOffset-speed >= 0 {
-
-		if txt.scrollOffset-speed+txt.rows > len(txt.chars) {
-			return
-		}
-
-		txt.scrollOffset -= speed
-	}
-
-	txt.drawBuff()
-}
-
-func (txt *Text) ScrollDown() {
-	txt.scrollOffset = len(txt.chars) - txt.rows
-	if txt.scrollOffset < 0 {
-		txt.scrollOffset = 0
-	}
-
-}
-
 func (txt *Text) Clear() {
 	txt.prevR = -1
 	txt.bounds = pixel.Rect{}
@@ -154,8 +130,6 @@ func (txt *Text) Clear() {
 }
 
 func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix) {
-	txt.RLock()
-	defer txt.RUnlock()
 
 	if matrix != txt.mat {
 		txt.mat = matrix
@@ -197,17 +171,12 @@ func (txt *Text) controlRune(r rune, dot pixel.Vec) (newDot pixel.Vec, control b
 	return dot, true
 }
 
-func (txt *Text) drawBuff() {
+func (txt *Text) DrawBuff(buf []term.Line) {
 
 	txt.Clear()
 
-	endOff := txt.scrollOffset + txt.rows
-	if endOff > len(txt.chars) {
-		endOff = len(txt.chars)
-	}
-
-	for _, lines := range txt.chars[txt.scrollOffset:endOff] {
-		for _, ch := range lines {
+	for _, line := range buf {
+		for _, ch := range line.Chars {
 			var control bool
 			txt.Dot, control = txt.controlRune(ch.R, txt.Dot)
 			if control {

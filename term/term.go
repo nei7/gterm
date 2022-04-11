@@ -1,112 +1,74 @@
 package term
 
 import (
-	"fmt"
-	"io"
 	"log"
-	"time"
+	"os"
+	"os/exec"
 
-	"golang.org/x/image/colornames"
-	"golang.org/x/image/font"
-
-	"github.com/faiface/pixel"
-	"github.com/faiface/pixel/pixelgl"
-
-	"github.com/nei7/gterm/term/text"
-	"github.com/nei7/gterm/util"
-
-	atlas "github.com/faiface/pixel/text"
+	"github.com/creack/pty"
 )
 
 type Terminal struct {
-	window *pixelgl.Window
-	text   *text.Text
-	font   font.Face
-
-	pty io.ReadWriter
-
-	height float64
-	width  float64
-
-	title string
-
-	config *Config
+	pty    *os.File
+	Buffer *Buffer
 }
 
 func New() *Terminal {
 	t := &Terminal{}
 
-	config, err := loadConfig()
+	pty, err := startPty(getHomeDir())
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fontPath := fmt.Sprintf("/usr/share/fonts/TTF/%s.ttf", config.Font.Family)
-
-	face, err := loadTTF(fontPath, config.Font.Size)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pty, err := startPty(util.GetHomeDir())
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	t.pty = pty
-	t.config = config
-	t.font = face
+
+	buffer := NewBuffer()
+	t.Buffer = buffer
 
 	return t
 }
 
-func (t *Terminal) setupWindow(w *pixelgl.Window) {
-	windowSize := w.Bounds().Size()
-	t.width = windowSize.X - t.config.Window.Padding.X
-	t.height = windowSize.Y - t.config.Window.Padding.Y
-	t.window = w
-
-	atlas := atlas.NewAtlas(t.font, atlas.ASCII)
-
-	t.text = text.New(pixel.Vec{
-		X: t.config.Window.Padding.X,
-		Y: t.height - atlas.Ascent() - t.config.Window.Padding.Y,
-	}, atlas)
-
-	cols := int(t.width / t.text.LineHeight)
-	rows := int(t.height / (t.text.LineHeight))
-
-	t.text.SetSize(rows, cols)
-
-}
-
-func (t *Terminal) input() {
-	scroll := t.window.MouseScroll()
-
-	switch {
-	case scroll.Y != 0:
-		t.text.Scroll(int(scroll.Y))
-
-	case t.window.JustPressed(pixelgl.KeyEnter):
-		t.pty.Write([]byte{'\n'})
-
-	case t.window.JustReleased(pixelgl.KeyTab):
-		t.pty.Write([]byte{'\t'})
-
-	case t.window.JustPressed(pixelgl.KeyBackspace):
-		t.pty.Write([]byte{8})
-
-	default:
-		typed := t.window.Typed()
-
-		if typed != "" {
-			t.pty.Write([]byte(typed))
-
-		}
+func getHomeDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
 	}
+
+	return home
 }
 
-func (t *Terminal) readPty() {
+func startPty(homedir string) (*os.File, error) {
+	_ = os.Chdir(homedir)
+
+	os.Setenv("TERM", "xterm")
+	cmd := exec.Command("/bin/bash")
+
+	pt, err := pty.Start(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	return pt, nil
+}
+
+func (t *Terminal) SetSize(rows, cols uint16) error {
+	t.Buffer.SetSize(rows, cols)
+
+	if err := pty.Setsize(t.pty, &pty.Winsize{
+		Rows: rows,
+		Cols: cols,
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *Terminal) Write(buf []byte) error {
+	_, err := t.pty.Write(buf)
+	return err
+}
+
+func (t *Terminal) Run() {
 	buf := make([]byte, 2048)
 	for {
 		num, err := t.pty.Read(buf)
@@ -115,35 +77,7 @@ func (t *Terminal) readPty() {
 			break
 		}
 
-		t.text.Write(buf[:num])
-
-	}
-}
-
-func (t *Terminal) Run() {
-	win, err := pixelgl.NewWindow(pixelgl.WindowConfig{
-		Title:     "gterm",
-		Bounds:    pixel.R(0, 0, 1024, 768),
-		VSync:     true,
-		Resizable: true,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	t.setupWindow(win)
-
-	go t.readPty()
-
-	fps := time.Tick(time.Second / 60)
-	for !win.Closed() {
-		win.Clear(colornames.Black)
-
-		t.input()
-
-		t.text.Draw(t.window, pixel.IM)
-		win.Update()
-
-		<-fps
+		t.Buffer.Write(buf[:num])
+		t.Buffer.ScrollToBottom()
 	}
 }
