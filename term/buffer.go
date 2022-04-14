@@ -1,9 +1,7 @@
 package term
 
 import (
-	"fmt"
 	"image/color"
-	"sync"
 )
 
 type Char struct {
@@ -29,15 +27,16 @@ func (line *Line) pop() {
 }
 
 type Buffer struct {
-	sync.RWMutex
-
 	lines []Line
 
 	rows uint16
 	cols uint16
 
-	cursorPos    struct{ X, Y int }
+	savedRows uint16
+	savedCols uint16
+
 	scrollOffset int
+	cursorPos    struct{ X, Y int }
 }
 
 func NewBuffer() *Buffer {
@@ -55,6 +54,22 @@ func (buf *Buffer) SetSize(rows, cols uint16) {
 
 func (buf *Buffer) insertLine(line Line) {
 	buf.lines = append(buf.lines, line)
+	if len(buf.lines) > 1 {
+		buf.cursorPos.Y++
+	}
+
+}
+
+func (buf *Buffer) appendToLine(line int, char Char) {
+	if len(buf.lines) == 0 {
+		buf.insertLine(Line{})
+	}
+
+	if line < 0 || line > len(buf.lines) {
+		return
+	}
+	buf.lines[line].push(char)
+	buf.cursorPos.X++
 }
 
 func (buf *Buffer) ScrollDown() {
@@ -64,14 +79,30 @@ func (buf *Buffer) ScrollDown() {
 }
 
 func (buf *Buffer) ScrollUp() {
-	fmt.Println(buf.scrollOffset)
 	if buf.scrollOffset > 0 {
 		buf.scrollOffset--
 	}
 }
 
+func (buf *Buffer) clear() {
+	buf.cursorPos = struct {
+		X int
+		Y int
+	}{
+		0, 0,
+	}
+	buf.cursorPos.X = 0
+	buf.cursorPos.Y = 0
+
+	buf.scrollOffset = 0
+
+	buf.lines = []Line{}
+}
+
 func (buf *Buffer) ScrollToBottom() {
-	buf.scrollOffset = len(buf.lines) - int(buf.rows)
+	if len(buf.lines)-int(buf.rows) > 0 {
+		buf.scrollOffset = len(buf.lines) - int(buf.rows)
+	}
 }
 
 func (buf *Buffer) GetLines() []Line {

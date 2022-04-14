@@ -66,7 +66,6 @@ func (g *GUI) handleInput() {
 
 	switch {
 	case scroll.Y != 0:
-		fmt.Println(scroll.Y)
 		switch {
 		case scroll.Y < 0:
 			g.terminal.Buffer.ScrollDown()

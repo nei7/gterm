@@ -10,6 +10,7 @@ import (
 	"github.com/faiface/pixel/text"
 	"github.com/goki/freetype/truetype"
 	"github.com/nei7/gterm/term"
+	"golang.org/x/image/colornames"
 	"golang.org/x/image/font"
 )
 
@@ -183,6 +184,9 @@ func (txt *Text) DrawBuff(buf []term.Line) {
 				continue
 			}
 
+			if ch.FgColor == nil {
+				ch.FgColor = colornames.White
+			}
 			for i := range txt.glyph {
 				txt.glyph[i].Color = pixel.ToRGBA(ch.FgColor)
 			}

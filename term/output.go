@@ -1,100 +1,111 @@
 package term
 
-import (
-	"log"
-	"strconv"
-	"strings"
+const (
+	asciBell       = 7
+	asciiBackspace = 8
+	asciiEscape    = 27
+	asciiCarriage  = '\r'
+	asciiNewLine   = '\n'
 
-	"golang.org/x/image/colornames"
+	noEscape = -100
 )
 
 type parseState struct {
-	parseMode bool
+	vt100 rune
 
-	// Control Sequence Introducer
-	csi bool
+	esc int
+
+	osc bool
 
 	s string
 }
 
-func (buf *Buffer) Write(out []byte) {
-	buf.Lock()
-	defer buf.Unlock()
-	state := parseState{}
+var previous *parseState
 
-	runes := []rune(string(out))
-	char := Char{}
-	for _, r := range runes {
-
-		switch {
-		case r == '\n':
-			buf.insertLine(Line{})
-		case r == 7:
-			// bell
-		case r == 8:
-			index := len(buf.lines) - 1
-			if index >= 0 {
-				buf.lines[index].pop()
-			}
-		case r == 27:
-			state.parseMode = true
-		case r == '[' && state.parseMode:
-			state.s = ""
-			state.csi = true
-		case r == 'm' && state.csi:
-			for _, s := range strings.Split(state.s, ";") {
-				switch {
-				case s == "":
-					continue
-				case s == "0":
-					char.BgColor, _ = parseBg(40)
-					char.FgColor, _ = parseFg(37)
-					continue
-				case s == "1" || s == "01":
-					continue
-				case s == "39":
-					char.FgColor, _ = parseFg(37)
-					continue
-				case s == "49":
-					char.BgColor, _ = parseBg(37)
-					continue
-				default:
-					i, err := strconv.Atoi(s)
-					if err != nil {
-						log.Println(err, "code:", s)
-						continue
-					}
-					fgColor, ok := parseFg(i)
-					if ok {
-						char.FgColor = fgColor
-						continue
-					}
-					bgColor, ok := parseBg(i)
-					if ok {
-						char.BgColor = bgColor
-						continue
-					}
-					log.Println("ANSI code not implemented:", i)
-				}
-			}
-			state.parseMode = false
-			state.csi = false
-
-		case state.csi || state.parseMode:
-			state.s += string(r)
-		case !state.csi && !state.parseMode:
-			char.R = r
-
-			if char.FgColor == nil {
-				char.FgColor = colornames.White
-			}
-
-			lines := len(buf.lines)
-			if lines == 0 {
-				buf.insertLine(Line{})
-			}
-			buf.lines[len(buf.lines)-1].push(char)
-		}
+func (t *Terminal) Print(out []byte) {
+	state := &parseState{}
+	if previous != nil {
+		state = previous
+		previous = nil
+	} else {
+		state.esc = noEscape
 	}
 
+	runes := []rune(string(out))
+
+	for i, r := range runes {
+		if r == asciiEscape {
+
+			state.esc = i
+			continue
+		}
+		if state.esc == i-1 {
+			if r == '[' {
+				continue
+			}
+
+			switch r {
+			case '\\':
+				t.handleOSC(state.s)
+				state.s = ""
+				state.osc = false
+			case ']':
+				state.osc = true
+			case '(', ')':
+				state.vt100 = r
+
+			}
+			state.esc = noEscape
+			continue
+		}
+		if state.osc {
+			if r == asciBell || r == 0 {
+				t.handleOSC(state.s)
+				state.s = ""
+				state.osc = false
+			} else {
+				state.s += string(r)
+			}
+			continue
+		}
+
+		if state.vt100 != 0 {
+			continue
+		}
+
+		if state.esc != noEscape {
+			state.s += string(r)
+
+			if (r < '0' || r > '9') && r != ';' && r != '=' && r != '?' {
+				t.handleEscape(state.s)
+				state.s = ""
+				state.esc = noEscape
+			}
+			continue
+		}
+
+		switch {
+		case r == asciiBackspace:
+			t.Backspace()
+
+		case r == asciBell:
+
+		case r == asciiNewLine:
+			t.Buffer.insertLine(Line{})
+
+		default:
+
+			t.Buffer.appendToLine(t.Buffer.cursorPos.Y, Char{
+				R:       r,
+				FgColor: t.currentFG,
+			})
+
+		}
+
+	}
+
+	if state.esc != noEscape {
+		state.esc = -1 - (len(state.s))
+		previous = state
+	}
 }

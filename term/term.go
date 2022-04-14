@@ -1,16 +1,25 @@
 package term
 
 import (
+	"image/color"
 	"log"
 	"os"
 	"os/exec"
 
 	"github.com/creack/pty"
+	"golang.org/x/image/colornames"
 )
 
 type Terminal struct {
 	pty    *os.File
 	Buffer *Buffer
+
+	title string
+	debug bool
+
+	currentFG color.Color
+	currentBG color.Color
+	bright    bool
 }
 
 func New() *Terminal {
@@ -24,6 +33,9 @@ func New() *Terminal {
 
 	buffer := NewBuffer()
 	t.Buffer = buffer
+
+	t.currentFG = colornames.White
+	t.currentBG = colornames.Black
 
 	return t
 }
@@ -40,7 +52,7 @@ func getHomeDir() string {
 func startPty(homedir string) (*os.File, error) {
 	_ = os.Chdir(homedir)
 
-	os.Setenv("TERM", "xterm")
+	os.Setenv("TERM", "xterm-256color")
 	cmd := exec.Command("/bin/bash")
 
 	pt, err := pty.Start(cmd)
@@ -53,7 +65,6 @@ func startPty(homedir string) (*os.File, error) {
 
 func (t *Terminal) SetSize(rows, cols uint16) error {
 	t.Buffer.SetSize(rows, cols)
-
 	if err := pty.Setsize(t.pty, &pty.Winsize{
 		Rows: rows,
 		Cols: cols,
@@ -61,6 +72,10 @@ func (t *Terminal) SetSize(rows, cols uint16) error {
 		return err
 	}
 	return nil
+}
+
+func (t *Terminal) setTitle(title string) {
+	t.title = title
 }
 
 func (t *Terminal) Write(buf []byte) error {
@@ -76,8 +91,14 @@ func (t *Terminal) Run() {
 			log.Printf("failed to read from pty: %v \n", err)
 			break
 		}
+		t.Print(buf[:num])
 
-		t.Buffer.Write(buf[:num])
 		t.Buffer.ScrollToBottom()
 	}
+}
+
+func (t *Terminal) Backspace() {
+	last := len(t.Buffer.lines) - 1
+	t.Buffer.lines[last].Chars = t.Buffer.lines[last].Chars[:len(t.Buffer.lines[last].Chars)-1]
+	t.Buffer.cursorPos.X--
 }
