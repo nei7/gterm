@@ -6,8 +6,10 @@ const (
 	asciiEscape    = 27
 	asciiCarriage  = '\r'
 	asciiNewLine   = '\n'
+	asciiTab       = '\t'
 
 	noEscape = -100
+	tabWidth = 8
 )
 
 type parseState struct {
@@ -35,7 +37,6 @@ func (t *Terminal) Print(out []byte) {
 
 	for i, r := range runes {
 		if r == asciiEscape {
-
 			state.esc = i
 			continue
 		}
@@ -85,6 +86,9 @@ func (t *Terminal) Print(out []byte) {
 		}
 
 		switch {
+		case r == asciiCarriage:
+			t.moveCursor(t.Buffer.cursorPos.Y, 0)
+
 		case r == asciiBackspace:
 			t.Backspace()
 
@@ -92,9 +96,19 @@ func (t *Terminal) Print(out []byte) {
 
 		case r == asciiNewLine:
 			t.Buffer.insertLine(Line{})
+			t.moveCursor(t.Buffer.cursorPos.Y+1, t.Buffer.cursorPos.X)
 
+		case r == asciiTab:
+			end := t.Buffer.cursorPos.X - t.Buffer.cursorPos.X%tabWidth + tabWidth
+
+			for t.Buffer.cursorPos.X < end {
+
+				t.Buffer.appendToLine(t.Buffer.cursorPos.Y, Char{
+					R:       ' ',
+					FgColor: t.currentFG,
+				})
+			}
 		default:
-
 			t.Buffer.appendToLine(t.Buffer.cursorPos.Y, Char{
 				R:       r,
 				FgColor: t.currentFG,

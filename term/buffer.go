@@ -54,9 +54,6 @@ func (buf *Buffer) SetSize(rows, cols uint16) {
 
 func (buf *Buffer) insertLine(line Line) {
 	buf.lines = append(buf.lines, line)
-	if len(buf.lines) > 1 {
-		buf.cursorPos.Y++
-	}
 
 }
 
@@ -103,6 +100,14 @@ func (buf *Buffer) ScrollToBottom() {
 	if len(buf.lines)-int(buf.rows) > 0 {
 		buf.scrollOffset = len(buf.lines) - int(buf.rows)
 	}
+}
+
+func (buf *Buffer) GetLine(index int) *Line {
+	if index < 0 || index > len(buf.lines) {
+		return nil
+	}
+
+	return &buf.lines[index]
 }
 
 func (buf *Buffer) GetLines() []Line {

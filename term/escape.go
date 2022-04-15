@@ -1,6 +1,7 @@
 package term
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 	"strconv"
@@ -12,23 +13,23 @@ import (
 var (
 	basicColors = []color.RGBA{
 		colornames.Black,
-		color.RGBA{170, 0, 0, 255},
-		color.RGBA{0, 170, 0, 255},
-		color.RGBA{170, 170, 0, 255},
-		color.RGBA{0, 0, 170, 255},
-		color.RGBA{170, 0, 170, 255},
-		color.RGBA{0, 255, 255, 255},
-		color.RGBA{170, 170, 170, 255},
+		{170, 0, 0, 255},
+		{0, 170, 0, 255},
+		{170, 170, 0, 255},
+		{0, 0, 170, 255},
+		{170, 0, 170, 255},
+		{0, 255, 255, 255},
+		{170, 170, 170, 255},
 	}
 	brightColors = []color.RGBA{
-		color.RGBA{85, 85, 85, 255},
-		color.RGBA{255, 85, 85, 255},
-		color.RGBA{85, 255, 85, 255},
-		color.RGBA{255, 255, 85, 255},
-		color.RGBA{85, 85, 255, 255},
-		color.RGBA{255, 85, 255, 255},
-		color.RGBA{85, 255, 255, 255},
-		color.RGBA{255, 255, 255, 255},
+		{85, 85, 85, 255},
+		{255, 85, 85, 255},
+		{85, 255, 85, 255},
+		{255, 255, 85, 255},
+		{85, 85, 255, 255},
+		{255, 85, 255, 255},
+		{85, 255, 255, 255},
+		{255, 255, 255, 255},
 	}
 )
 var escapes = map[rune]func(*Terminal, string){
@@ -40,10 +41,13 @@ var escapes = map[rune]func(*Terminal, string){
 	'H': escapeMoveCursor,
 	'f': escapeMoveCursor,
 	'G': escapeMoveCursorCol,
+	'L': escapeInsertLines,
+	'm': escapeColorMode,
+	'J': escapeEraseInScreen,
+	'K': escapeEraseInLine,
 	'r': escapeSetScrollArea,
 	's': escapeSaveCursor,
 	'u': escapeRestoreCursor,
-	'm': escapeColorMode,
 }
 
 func (t *Terminal) handleEscape(code string) {
@@ -77,7 +81,6 @@ func trimLeftZeros(s string) string {
 }
 
 func (t *Terminal) moveCursor(row, col int) {
-
 	if col < 0 {
 		col = 0
 	} else if col >= int(t.Buffer.cols) {
@@ -318,5 +321,40 @@ func (t *Terminal) handleColorModeMap(mode, ids string) {
 		t.currentFG = c
 	} else if mode == "48" {
 		t.currentBG = c
+	}
+}
+
+func escapeEraseInScreen(t *Terminal, msg string) {
+	mode, _ := strconv.Atoi(msg)
+	switch mode {
+	case 0:
+
+	case 1:
+
+	case 2:
+		t.Clear()
+	}
+}
+
+func escapeInsertLines(t *Terminal, msg string) {
+	fmt.Println(msg)
+	rows, _ := strconv.Atoi(msg)
+	if rows == 0 {
+		rows = 1
+	}
+
+}
+
+func escapeEraseInLine(t *Terminal, msg string) {
+	mode, _ := strconv.Atoi(msg)
+	switch mode {
+	case 0:
+		line := t.Buffer.GetLine(t.Buffer.cursorPos.Y)
+		line.Chars = line.Chars[:t.Buffer.cursorPos.X]
+	case 1:
+		line := t.Buffer.GetLine(t.Buffer.cursorPos.Y)
+		line.Chars = line.Chars[t.Buffer.cursorPos.X:]
+	case 2:
+		t.Buffer.clear()
 	}
 }

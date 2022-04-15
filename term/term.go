@@ -98,7 +98,12 @@ func (t *Terminal) Run() {
 }
 
 func (t *Terminal) Backspace() {
-	last := len(t.Buffer.lines) - 1
-	t.Buffer.lines[last].Chars = t.Buffer.lines[last].Chars[:len(t.Buffer.lines[last].Chars)-1]
-	t.Buffer.cursorPos.X--
+	last := &t.Buffer.lines[t.Buffer.cursorPos.Y]
+
+	last.Chars = last.Chars[:t.Buffer.cursorPos.X-1]
+	t.moveCursor(t.Buffer.cursorPos.Y, t.Buffer.cursorPos.X-1)
+}
+
+func (t *Terminal) Clear() {
+	t.Buffer.clear()
 }
