@@ -1,7 +1,6 @@
 package term
 
 import (
-	"fmt"
 	"image/color"
 	"log"
 	"strconv"
@@ -81,20 +80,9 @@ func trimLeftZeros(s string) string {
 }
 
 func (t *Terminal) moveCursor(row, col int) {
-	if col < 0 {
-		col = 0
-	} else if col >= int(t.Buffer.cols) {
-		col = int(t.Buffer.cols) - 1
-	}
 
-	if row < 0 {
-		row = 0
-	} else if row >= int(t.Buffer.rows) {
-		row = int(t.Buffer.rows) - 1
-	}
-
-	t.Buffer.cursorPos.X = col
-	t.Buffer.cursorPos.Y = row
+	t.buffer.cursorPos.X = col
+	t.buffer.cursorPos.Y = row
 
 }
 
@@ -107,7 +95,7 @@ func escapeMoveCursorUp(t *Terminal, msg string) {
 	if rows == 0 {
 		rows = 1
 	}
-	t.moveCursor(t.Buffer.cursorPos.Y-rows, t.Buffer.cursorPos.X)
+	t.moveCursor(t.buffer.cursorPos.Y-rows, t.buffer.cursorPos.X)
 }
 
 func escapeMoveCursorDown(t *Terminal, msg string) {
@@ -115,7 +103,7 @@ func escapeMoveCursorDown(t *Terminal, msg string) {
 	if rows == 0 {
 		rows = 1
 	}
-	t.moveCursor(t.Buffer.cursorPos.Y+rows, t.Buffer.cursorPos.X)
+	t.moveCursor(t.buffer.cursorPos.Y+rows, t.buffer.cursorPos.X)
 }
 
 func escapeMoveCursorRight(t *Terminal, msg string) {
@@ -123,7 +111,7 @@ func escapeMoveCursorRight(t *Terminal, msg string) {
 	if cols == 0 {
 		cols = 1
 	}
-	t.moveCursor(t.Buffer.cursorPos.Y, t.Buffer.cursorPos.X+cols)
+	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X+cols)
 }
 
 func escapeMoveCursorLeft(t *Terminal, msg string) {
@@ -131,17 +119,17 @@ func escapeMoveCursorLeft(t *Terminal, msg string) {
 	if cols == 0 {
 		cols = 1
 	}
-	t.moveCursor(t.Buffer.cursorPos.Y, t.Buffer.cursorPos.X-cols)
+	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X-cols)
 }
 
 func escapeMoveCursorRow(t *Terminal, msg string) {
 	row, _ := strconv.Atoi(msg)
-	t.moveCursor(row-1, t.Buffer.cursorPos.X)
+	t.moveCursor(row-1, t.buffer.cursorPos.X)
 }
 
 func escapeMoveCursorCol(t *Terminal, msg string) {
 	col, _ := strconv.Atoi(msg)
-	t.moveCursor(t.Buffer.cursorPos.Y, col-1)
+	t.moveCursor(t.buffer.cursorPos.Y, col-1)
 }
 
 func escapeMoveCursor(t *Terminal, msg string) {
@@ -161,18 +149,18 @@ func escapeMoveCursor(t *Terminal, msg string) {
 }
 
 func escapeRestoreCursor(t *Terminal, _ string) {
-	t.moveCursor(int(t.Buffer.savedRows), int(t.Buffer.savedCols))
+	t.moveCursor(int(t.buffer.savedRows), int(t.buffer.savedCols))
 }
 
 func escapeSaveCursor(t *Terminal, _ string) {
-	t.Buffer.savedRows = uint16(t.Buffer.cursorPos.Y)
-	t.Buffer.savedCols = uint16(t.Buffer.cursorPos.X)
+	t.buffer.savedRows = uint16(t.buffer.cursorPos.Y)
+	t.buffer.savedCols = uint16(t.buffer.cursorPos.X)
 }
 
 func escapeSetScrollArea(t *Terminal, msg string) {
 	parts := strings.Split(msg, ";")
 	start := 0
-	end := int(t.Buffer.rows) - 1
+	end := int(t.buffer.rows) - 1
 	if len(parts) == 2 {
 		if parts[0] != "" {
 			start, _ = strconv.Atoi(parts[0])
@@ -337,7 +325,6 @@ func escapeEraseInScreen(t *Terminal, msg string) {
 }
 
 func escapeInsertLines(t *Terminal, msg string) {
-	fmt.Println(msg)
 	rows, _ := strconv.Atoi(msg)
 	if rows == 0 {
 		rows = 1
@@ -349,12 +336,12 @@ func escapeEraseInLine(t *Terminal, msg string) {
 	mode, _ := strconv.Atoi(msg)
 	switch mode {
 	case 0:
-		line := t.Buffer.GetLine(t.Buffer.cursorPos.Y)
-		line.Chars = line.Chars[:t.Buffer.cursorPos.X]
+		line := t.buffer.getLine(t.buffer.cursorPos.Y)
+		line.Chars = line.Chars[:t.buffer.cursorPos.X]
 	case 1:
-		line := t.Buffer.GetLine(t.Buffer.cursorPos.Y)
-		line.Chars = line.Chars[t.Buffer.cursorPos.X:]
+		line := t.buffer.getLine(t.buffer.cursorPos.Y)
+		line.Chars = line.Chars[t.buffer.cursorPos.X:]
 	case 2:
-		t.Buffer.clear()
+		t.buffer.clear()
 	}
 }

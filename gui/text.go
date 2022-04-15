@@ -3,7 +3,6 @@ package gui
 import (
 	"image/color"
 	"io/ioutil"
-	"math"
 	"os"
 
 	"github.com/faiface/pixel"
@@ -101,12 +100,6 @@ func (txt *Text) BoundsOf(s string) pixel.Rect {
 	bounds := pixel.Rect{}
 
 	for _, r := range s {
-		var control bool
-		dot, control = txt.controlRune(r, dot)
-		if control {
-			continue
-		}
-
 		var b pixel.Rect
 		_, _, b, dot = txt.Atlas().DrawRune(prevR, r, dot)
 
@@ -130,7 +123,7 @@ func (txt *Text) Clear() {
 	txt.Dot = txt.Orig
 }
 
-func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix) {
+func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix, lines []term.Line) {
 
 	if matrix != txt.mat {
 		txt.mat = matrix
@@ -154,43 +147,20 @@ func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix) {
 	txt.transD.Draw(t)
 }
 
-func (txt *Text) controlRune(r rune, dot pixel.Vec) (newDot pixel.Vec, control bool) {
-	switch r {
-	case '\r':
-		dot.X = txt.Orig.X
-	case '\t':
-		rem := math.Mod(dot.X-txt.Orig.X, txt.TabWidth)
-		rem = math.Mod(rem, rem+txt.TabWidth)
-		if rem == 0 {
-			rem = txt.TabWidth
-		}
-		dot.X += rem
-
-	default:
-		return dot, false
-	}
-	return dot, true
-}
-
-func (txt *Text) DrawBuff(buf []term.Line) {
+func (txt *Text) drawBuff(lines []term.Line) {
 
 	txt.Clear()
 
-	for _, line := range buf {
+	for _, line := range lines {
 		for _, ch := range line.Chars {
-			var control bool
-			txt.Dot, control = txt.controlRune(ch.R, txt.Dot)
-			if control {
-				continue
-			}
 
 			if ch.FgColor == nil {
 				ch.FgColor = colornames.White
 			}
+
 			for i := range txt.glyph {
 				txt.glyph[i].Color = pixel.ToRGBA(ch.FgColor)
 			}
-
 			var rect, frame, bounds pixel.Rect
 			rect, frame, bounds, txt.Dot = txt.Atlas().DrawRune(txt.prevR, ch.R, txt.Dot)
 
@@ -213,6 +183,7 @@ func (txt *Text) DrawBuff(buf []term.Line) {
 			for i, j := range [...]int{0, 1, 2, 0, 2, 3} {
 				txt.glyph[i].Position = rv[j]
 				txt.glyph[i].Picture = fv[j]
+
 			}
 
 			txt.tris = append(txt.tris, txt.glyph...)
@@ -223,6 +194,7 @@ func (txt *Text) DrawBuff(buf []term.Line) {
 			} else {
 				txt.bounds = txt.bounds.Union(bounds)
 			}
+
 		}
 
 		txt.Dot.X = txt.Orig.X

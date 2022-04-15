@@ -87,7 +87,7 @@ func (t *Terminal) Print(out []byte) {
 
 		switch {
 		case r == asciiCarriage:
-			t.moveCursor(t.Buffer.cursorPos.Y, 0)
+			t.moveCursor(t.buffer.cursorPos.Y, 0)
 
 		case r == asciiBackspace:
 			t.Backspace()
@@ -95,23 +95,26 @@ func (t *Terminal) Print(out []byte) {
 		case r == asciBell:
 
 		case r == asciiNewLine:
-			t.Buffer.insertLine(Line{})
-			t.moveCursor(t.Buffer.cursorPos.Y+1, t.Buffer.cursorPos.X)
+			t.buffer.insertLine(Line{})
+			t.moveCursor(t.buffer.cursorPos.Y+1, t.buffer.cursorPos.X)
 
 		case r == asciiTab:
-			end := t.Buffer.cursorPos.X - t.Buffer.cursorPos.X%tabWidth + tabWidth
+			end := t.buffer.cursorPos.X - t.buffer.cursorPos.X%tabWidth + tabWidth
 
-			for t.Buffer.cursorPos.X < end {
+			for t.buffer.cursorPos.X < end {
 
-				t.Buffer.appendToLine(t.Buffer.cursorPos.Y, Char{
+				t.buffer.appendToLine(t.buffer.cursorPos.Y, Char{
 					R:       ' ',
 					FgColor: t.currentFG,
+					BgColor: t.currentBG,
 				})
 			}
+
 		default:
-			t.Buffer.appendToLine(t.Buffer.cursorPos.Y, Char{
+			t.buffer.appendToLine(t.buffer.cursorPos.Y, Char{
 				R:       r,
 				FgColor: t.currentFG,
+				BgColor: t.currentBG,
 			})
 
 		}

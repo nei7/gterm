@@ -68,9 +68,9 @@ func (g *GUI) handleInput() {
 	case scroll.Y != 0:
 		switch {
 		case scroll.Y < 0:
-			g.terminal.Buffer.ScrollDown()
+			g.terminal.ScrollDown()
 		case scroll.Y > 0:
-			g.terminal.Buffer.ScrollUp()
+			g.terminal.ScrollUp()
 		}
 
 	case g.window.JustPressed(pixelgl.KeyEnter):

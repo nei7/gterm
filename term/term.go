@@ -12,10 +12,12 @@ import (
 
 type Terminal struct {
 	pty    *os.File
-	Buffer *Buffer
+	buffer *Buffer
 
 	title string
 	debug bool
+
+	scrollOffset int
 
 	currentFG color.Color
 	currentBG color.Color
@@ -32,7 +34,7 @@ func New() *Terminal {
 	t.pty = pty
 
 	buffer := NewBuffer()
-	t.Buffer = buffer
+	t.buffer = buffer
 
 	t.currentFG = colornames.White
 	t.currentBG = colornames.Black
@@ -64,7 +66,7 @@ func startPty(homedir string) (*os.File, error) {
 }
 
 func (t *Terminal) SetSize(rows, cols uint16) error {
-	t.Buffer.SetSize(rows, cols)
+	t.buffer.setSize(rows, cols)
 	if err := pty.Setsize(t.pty, &pty.Winsize{
 		Rows: rows,
 		Cols: cols,
@@ -91,19 +93,50 @@ func (t *Terminal) Run() {
 			log.Printf("failed to read from pty: %v \n", err)
 			break
 		}
-		t.Print(buf[:num])
 
-		t.Buffer.ScrollToBottom()
+		t.Print(buf[:num])
+		t.ScrollToBottom()
 	}
 }
 
 func (t *Terminal) Backspace() {
-	last := &t.Buffer.lines[t.Buffer.cursorPos.Y]
-
-	last.Chars = last.Chars[:t.Buffer.cursorPos.X-1]
-	t.moveCursor(t.Buffer.cursorPos.Y, t.Buffer.cursorPos.X-1)
+	last := &t.buffer.lines[t.buffer.cursorPos.Y]
+	last.Chars = last.Chars[:t.buffer.cursorPos.X-1]
+	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X-1)
 }
 
 func (t *Terminal) Clear() {
-	t.Buffer.clear()
+	t.buffer.clear()
+}
+
+func (t *Terminal) GetLines() []Line {
+	if len(t.buffer.lines) < int(t.buffer.rows) {
+		return t.buffer.lines
+	}
+
+	offset := int(t.buffer.rows) + t.scrollOffset
+	if length := len(t.buffer.lines); offset >= length {
+		return t.buffer.lines[t.scrollOffset:length]
+	}
+
+	return t.buffer.lines[t.scrollOffset:offset]
+}
+
+// Handle scroll
+func (t *Terminal) ScrollDown() {
+	if t.scrollOffset < len(t.buffer.lines)-int(t.buffer.rows) {
+		t.scrollOffset++
+	}
+}
+
+func (t *Terminal) ScrollUp() {
+	if t.scrollOffset > 0 {
+		t.scrollOffset--
+	}
+}
+
+func (t *Terminal) ScrollToBottom() {
+	if len(t.buffer.lines)-int(t.buffer.rows) > 0 {
+		t.scrollOffset = len(t.buffer.lines) - int(t.buffer.rows)
+	}
 }
