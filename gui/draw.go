@@ -5,6 +5,8 @@ import (
 )
 
 func (g *GUI) drawText() {
+
 	lines := g.terminal.GetLines()
+
 	g.text.Draw(g.window, pixel.IM, lines)
 }

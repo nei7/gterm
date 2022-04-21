@@ -306,8 +306,10 @@ func (t *Terminal) handleColorModeMap(mode, ids string) {
 	}
 
 	if mode == "38" {
+
 		t.currentFG = c
 	} else if mode == "48" {
+
 		t.currentBG = c
 	}
 }

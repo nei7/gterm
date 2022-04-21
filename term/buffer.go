@@ -52,6 +52,7 @@ func (buf *Buffer) appendToLine(line int, char Char) {
 	if line < 0 || line > len(buf.lines) {
 		return
 	}
+
 	buf.lines[line].Chars = append(buf.lines[line].Chars, char)
 	buf.cursorPos.X++
 }

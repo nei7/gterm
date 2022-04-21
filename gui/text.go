@@ -35,6 +35,14 @@ type Text struct {
 	trans  pixel.TrianglesData
 	transD pixel.Drawer
 	dirty  bool
+
+	batch  *pixel.Batch
+	sprite *pixel.Sprite
+}
+
+type selection struct {
+	bgColor color.Color
+	mat     pixel.Matrix
 }
 
 func NewText(orig pixel.Vec, atlas *text.Atlas) *Text {
@@ -60,7 +68,34 @@ func NewText(orig pixel.Vec, atlas *text.Atlas) *Text {
 
 	txt.Clear()
 
+	size := txt.atlas.Glyph('Q')
+
+	txt.batch, txt.sprite = createBatch(pixel.V(size.Frame.W(), size.Frame.H()+txt.LineHeight/4))
+
 	return txt
+}
+
+func createBatch(size pixel.Vec) (*pixel.Batch, *pixel.Sprite) {
+	spritesheet := createSpritesheet(size, colornames.White)
+	batch := pixel.NewBatch(&pixel.TrianglesData{}, spritesheet)
+	sprite := pixel.NewSprite(spritesheet, spritesheet.Rect)
+
+	return batch, sprite
+}
+
+func createSpritesheet(size pixel.Vec, color color.Color) *pixel.PictureData {
+	rect := pixel.R(0, 0, size.X, size.Y)
+
+	r, g, b, a := color.RGBA()
+	spritesheet := pixel.MakePictureData(rect)
+	for i := range spritesheet.Pix {
+		spritesheet.Pix[i].R = uint8(r)
+		spritesheet.Pix[i].G = uint8(g)
+		spritesheet.Pix[i].B = uint8(b)
+		spritesheet.Pix[i].A = uint8(a)
+	}
+
+	return spritesheet
 }
 
 func loadTTF(path string, size float64) (font.Face, error) {
@@ -124,6 +159,9 @@ func (txt *Text) Clear() {
 }
 
 func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix, lines []term.Line) {
+	txt.batch.Clear()
+
+	txt.drawBuff(lines, t)
 
 	if matrix != txt.mat {
 		txt.mat = matrix
@@ -145,9 +183,10 @@ func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix, lines []term.Line) {
 	}
 
 	txt.transD.Draw(t)
+
 }
 
-func (txt *Text) drawBuff(lines []term.Line) {
+func (txt *Text) drawBuff(lines []term.Line, t pixel.Target) {
 
 	txt.Clear()
 
@@ -189,6 +228,15 @@ func (txt *Text) drawBuff(lines []term.Line) {
 			txt.tris = append(txt.tris, txt.glyph...)
 			txt.dirty = true
 
+			if ch.BgColor != nil {
+				w := frame.W()/txt.sprite.Frame().W() + txt.LineHeight/10
+
+				moved := pixel.V(rect.Max.X-(rect.W()/2), txt.Dot.Y+txt.LineHeight/4)
+				mat := pixel.IM.ScaledXY(pixel.ZV, pixel.V(w, 1)).Moved(moved)
+
+				txt.sprite.DrawColorMask(txt.batch, mat, ch.BgColor)
+			}
+
 			if txt.bounds.W()*txt.bounds.H() == 0 {
 				txt.bounds = bounds
 			} else {
@@ -202,4 +250,5 @@ func (txt *Text) drawBuff(lines []term.Line) {
 
 	}
 
+	txt.batch.Draw(t)
 }

@@ -2,7 +2,6 @@ package gui
 
 import (
 	"log"
-	"time"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
@@ -24,14 +23,14 @@ func (g *GUI) Run() {
 
 	go g.terminal.Run()
 
-	fps := time.Tick(time.Second / 60)
 	for !win.Closed() {
 		win.Clear(colornames.Black)
+
 		g.handleInput()
 
 		g.drawText()
 
 		win.Update()
-		<-fps
+
 	}
 }

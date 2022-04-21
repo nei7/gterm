@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"log"
+	"unicode"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
@@ -35,8 +36,10 @@ func New(config *config.Config) *GUI {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	g.font = face
 	g.config = config
+
 	g.terminal = term.New()
 
 	return g
@@ -46,9 +49,10 @@ func (g *GUI) setupWindow(w *pixelgl.Window) {
 	windowSize := w.Bounds().Size()
 	g.width = windowSize.X - g.config.Window.Padding.X
 	g.height = windowSize.Y - g.config.Window.Padding.Y
+
 	g.window = w
 
-	atlas := text.NewAtlas(g.font, text.ASCII)
+	atlas := text.NewAtlas(g.font, text.ASCII, text.RangeTable(unicode.Latin))
 
 	g.text = NewText(pixel.Vec{
 		X: g.config.Window.Padding.X,

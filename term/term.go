@@ -95,6 +95,7 @@ func (t *Terminal) Run() {
 		}
 
 		t.Print(buf[:num])
+
 		t.ScrollToBottom()
 	}
 }
