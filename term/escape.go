@@ -56,6 +56,7 @@ func (t *Terminal) handleEscape(code string) {
 	}
 
 	runes := []rune(code)
+
 	if esc, ok := escapes[runes[len(code)-1]]; ok {
 		esc(t, code[:len(code)-1])
 	} else if t.debug {
@@ -95,6 +96,7 @@ func escapeMoveCursorUp(t *Terminal, msg string) {
 	if rows == 0 {
 		rows = 1
 	}
+
 	t.moveCursor(t.buffer.cursorPos.Y-rows, t.buffer.cursorPos.X)
 }
 
@@ -103,6 +105,7 @@ func escapeMoveCursorDown(t *Terminal, msg string) {
 	if rows == 0 {
 		rows = 1
 	}
+
 	t.moveCursor(t.buffer.cursorPos.Y+rows, t.buffer.cursorPos.X)
 }
 
@@ -119,6 +122,7 @@ func escapeMoveCursorLeft(t *Terminal, msg string) {
 	if cols == 0 {
 		cols = 1
 	}
+
 	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X-cols)
 }
 

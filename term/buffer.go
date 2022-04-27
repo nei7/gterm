@@ -44,13 +44,21 @@ func (buf *Buffer) insertLine(line Line) {
 	buf.lines = append(buf.lines, line)
 }
 
-func (buf *Buffer) appendToLine(line int, char Char) {
-	if len(buf.lines) == 0 {
+func (buf *Buffer) insertChar(char Char) {
+
+	for len(buf.lines)-1 < buf.cursorPos.Y {
 		buf.insertLine(Line{})
 	}
 
+	line := buf.cursorPos.Y
 	if line < 0 || line > len(buf.lines) {
 		return
+	}
+
+	for len(buf.lines[line].Chars) < buf.cursorPos.X {
+		buf.lines[line].Chars = append(buf.lines[line].Chars, Char{
+			R: ' ',
+		})
 	}
 
 	buf.lines[line].Chars = append(buf.lines[line].Chars, char)

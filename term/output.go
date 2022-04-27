@@ -54,8 +54,8 @@ func (t *Terminal) Print(out []byte) {
 				state.osc = true
 			case '(', ')':
 				state.vt100 = r
-
 			}
+
 			state.esc = noEscape
 			continue
 		}
@@ -94,8 +94,10 @@ func (t *Terminal) Print(out []byte) {
 
 		case r == asciBell:
 
+		case r == 0x0e || r == 0x0f:
+			continue
+
 		case r == asciiNewLine:
-			t.buffer.insertLine(Line{})
 			t.moveCursor(t.buffer.cursorPos.Y+1, t.buffer.cursorPos.X)
 
 		case r == asciiTab:
@@ -103,7 +105,7 @@ func (t *Terminal) Print(out []byte) {
 
 			for t.buffer.cursorPos.X < end {
 
-				t.buffer.appendToLine(t.buffer.cursorPos.Y, Char{
+				t.buffer.insertChar(Char{
 					R:       ' ',
 					FgColor: t.currentFG,
 					BgColor: t.currentBG,
@@ -111,7 +113,8 @@ func (t *Terminal) Print(out []byte) {
 			}
 
 		default:
-			t.buffer.appendToLine(t.buffer.cursorPos.Y, Char{
+
+			t.buffer.insertChar(Char{
 				R:       r,
 				FgColor: t.currentFG,
 				BgColor: t.currentBG,

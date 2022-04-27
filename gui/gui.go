@@ -11,6 +11,7 @@ import (
 	"github.com/nei7/gterm/config"
 	"github.com/nei7/gterm/term"
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
 )
 
 type GUI struct {
@@ -52,7 +53,7 @@ func (g *GUI) setupWindow(w *pixelgl.Window) {
 
 	g.window = w
 
-	atlas := text.NewAtlas(g.font, text.ASCII, text.RangeTable(unicode.Latin))
+	atlas := text.NewAtlas(basicfont.Face7x13, text.ASCII, text.RangeTable(unicode.Latin))
 
 	g.text = NewText(pixel.Vec{
 		X: g.config.Window.Padding.X,
