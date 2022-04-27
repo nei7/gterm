@@ -40,14 +40,14 @@ func (buf *Buffer) setSize(rows, cols uint16) {
 	buf.cols = cols
 }
 
-func (buf *Buffer) insertLine(line Line) {
-	buf.lines = append(buf.lines, line)
+func (buf *Buffer) insertLine() {
+	buf.lines = append(buf.lines, Line{})
 }
 
 func (buf *Buffer) insertChar(char Char) {
 
 	for len(buf.lines)-1 < buf.cursorPos.Y {
-		buf.insertLine(Line{})
+		buf.insertLine()
 	}
 
 	line := buf.cursorPos.Y
@@ -84,4 +84,23 @@ func (buf *Buffer) getLine(index int) *Line {
 	}
 
 	return &buf.lines[index]
+}
+
+func (buf *Buffer) SetRow(row int, content []Char) {
+	if row < 0 {
+		return
+	}
+	for len(buf.lines) <= row {
+		buf.lines = append(buf.lines, Line{})
+	}
+
+	buf.lines[row] = Line{Chars: content}
+}
+
+func (buf *Buffer) Row(row int) Line {
+	if row < 0 || row >= len(buf.lines) {
+		return Line{}
+	}
+
+	return buf.lines[row]
 }

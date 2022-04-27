@@ -44,6 +44,7 @@ var escapes = map[rune]func(*Terminal, string){
 	'm': escapeColorMode,
 	'J': escapeEraseInScreen,
 	'K': escapeEraseInLine,
+	'P': escapeDeleteChars,
 	'r': escapeSetScrollArea,
 	's': escapeSaveCursor,
 	'u': escapeRestoreCursor,
@@ -335,6 +336,14 @@ func escapeInsertLines(t *Terminal, msg string) {
 	if rows == 0 {
 		rows = 1
 	}
+	i := t.scrollOffset
+	for ; i > t.buffer.cursorPos.Y-rows; i-- {
+
+		t.buffer.SetRow(i, t.buffer.Row(i-rows).Chars)
+	}
+	for ; i >= t.buffer.cursorPos.Y; i-- {
+		t.buffer.SetRow(i, []Char{})
+	}
 
 }
 
@@ -350,4 +359,18 @@ func escapeEraseInLine(t *Terminal, msg string) {
 	case 2:
 		t.buffer.clear()
 	}
+}
+
+func escapeDeleteChars(t *Terminal, msg string) {
+	i, _ := strconv.Atoi(msg)
+	right := t.buffer.cursorPos.X + i
+
+	row := t.buffer.Row(t.buffer.cursorPos.Y)
+	cells := row.Chars[:t.buffer.cursorPos.X]
+	cells = append(cells, make([]Char, i)...)
+	if right < len(t.buffer.lines) {
+		cells = append(cells, cells[right:]...)
+	}
+
+	t.buffer.SetRow(t.buffer.cursorPos.Y, cells)
 }

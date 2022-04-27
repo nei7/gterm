@@ -65,30 +65,3 @@ func (g *GUI) setupWindow(w *pixelgl.Window) {
 
 	g.terminal.SetSize(uint16(rows), uint16(cols))
 }
-
-func (g *GUI) handleInput() {
-	scroll := g.window.MouseScroll()
-
-	switch {
-	case scroll.Y != 0:
-		switch {
-		case scroll.Y < 0:
-			g.terminal.ScrollDown()
-		case scroll.Y > 0:
-			g.terminal.ScrollUp()
-		}
-
-	case g.window.JustPressed(pixelgl.KeyEnter):
-		g.terminal.Write([]byte{'\n'})
-
-	case g.window.JustReleased(pixelgl.KeyTab):
-		g.terminal.Write([]byte{'\t'})
-
-	case g.window.JustPressed(pixelgl.KeyBackspace):
-		g.terminal.Write([]byte{8})
-
-	default:
-		g.terminal.Write([]byte(g.window.Typed()))
-
-	}
-}

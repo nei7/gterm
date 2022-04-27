@@ -90,6 +90,11 @@ func (t *Terminal) Run() {
 	for {
 		num, err := t.pty.Read(buf)
 		if err != nil {
+			if err.Error() == "EOF" {
+				os.Exit(1)
+			} else if err, ok := err.(*os.PathError); ok && err.Err.Error() == "input/output error" {
+				os.Exit(1)
+			}
 			log.Printf("failed to read from pty: %v \n", err)
 			break
 		}
