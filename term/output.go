@@ -22,9 +22,9 @@ type parseState struct {
 	s string
 }
 
-var previous *parseState
+func (t *Terminal) handleOutput(out []byte) {
+	var previous *parseState
 
-func (t *Terminal) Print(out []byte) {
 	state := &parseState{}
 	if previous != nil {
 		state = previous
@@ -54,6 +54,13 @@ func (t *Terminal) Print(out []byte) {
 				state.osc = true
 			case '(', ')':
 				state.vt100 = r
+			case '7':
+				t.buffer.savedCursorPos.X = t.buffer.cursorPos.X
+				t.buffer.savedCursorPos.Y = t.buffer.cursorPos.Y
+			case '8':
+				t.buffer.savedCursorPos.X = t.buffer.cursorPos.X
+				t.buffer.savedCursorPos.Y = t.buffer.cursorPos.Y
+
 			}
 
 			state.esc = noEscape
@@ -71,6 +78,7 @@ func (t *Terminal) Print(out []byte) {
 		}
 
 		if state.vt100 != 0 {
+			state.vt100 = 0
 			continue
 		}
 

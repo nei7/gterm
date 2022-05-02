@@ -68,9 +68,9 @@ func NewText(orig pixel.Vec, atlas *text.Atlas) *Text {
 
 	txt.Clear()
 
-	size := txt.atlas.Glyph('Q')
+	size := txt.atlas.Glyph('Q').Frame.Size()
 
-	txt.batch, txt.sprite = createBatch(pixel.V(size.Frame.W(), size.Frame.H()))
+	txt.batch, txt.sprite = createBatch(size)
 
 	return txt
 }
@@ -232,9 +232,7 @@ func (txt *Text) drawBuff(lines []term.Line, t pixel.Target) {
 
 				w, h := frame.W()/txt.sprite.Frame().W(), frame.H()/txt.sprite.Frame().H()
 
-				moved := pixel.V(rect.Max.X-(rect.W()/2), rect.Max.Y-(rect.H()/2))
-
-				mat := pixel.IM.ScaledXY(pixel.ZV, pixel.V(w, h)).Moved(moved)
+				mat := pixel.IM.ScaledXY(pixel.ZV, pixel.V(w+txt.Dot.X-rect.Max.X, h)).Moved(rect.Center())
 
 				txt.sprite.DrawColorMask(txt.batch, mat, ch.BgColor)
 			}

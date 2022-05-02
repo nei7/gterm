@@ -21,10 +21,8 @@ type Buffer struct {
 	rows uint16
 	cols uint16
 
-	savedRows uint16
-	savedCols uint16
-
-	cursorPos struct{ X, Y int }
+	savedCursorPos struct{ X, Y int }
+	cursorPos      struct{ X, Y int }
 }
 
 func NewBuffer() *Buffer {
@@ -76,14 +74,6 @@ func (buf *Buffer) clear() {
 	buf.cursorPos.Y = 0
 
 	buf.lines = []Line{}
-}
-
-func (buf *Buffer) getLine(index int) *Line {
-	if index < 0 || index >= len(buf.lines) {
-		return nil
-	}
-
-	return &buf.lines[index]
 }
 
 func (buf *Buffer) SetRow(row int, content []Char) {

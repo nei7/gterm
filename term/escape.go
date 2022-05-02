@@ -45,7 +45,6 @@ var escapes = map[rune]func(*Terminal, string){
 	'J': escapeEraseInScreen,
 	'K': escapeEraseInLine,
 	'P': escapeDeleteChars,
-	'r': escapeSetScrollArea,
 	's': escapeSaveCursor,
 	'u': escapeRestoreCursor,
 }
@@ -57,7 +56,6 @@ func (t *Terminal) handleEscape(code string) {
 	}
 
 	runes := []rune(code)
-
 	if esc, ok := escapes[runes[len(code)-1]]; ok {
 		esc(t, code[:len(code)-1])
 	} else if t.debug {
@@ -82,18 +80,12 @@ func trimLeftZeros(s string) string {
 }
 
 func (t *Terminal) moveCursor(row, col int) {
-
 	t.buffer.cursorPos.X = col
 	t.buffer.cursorPos.Y = row
-
 }
 
 func escapeMoveCursorUp(t *Terminal, msg string) {
-	rows, err := strconv.Atoi(msg)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	rows, _ := strconv.Atoi(msg)
 	if rows == 0 {
 		rows = 1
 	}
@@ -154,28 +146,12 @@ func escapeMoveCursor(t *Terminal, msg string) {
 }
 
 func escapeRestoreCursor(t *Terminal, _ string) {
-	t.moveCursor(int(t.buffer.savedRows), int(t.buffer.savedCols))
+	t.moveCursor(t.buffer.savedCursorPos.Y, t.buffer.savedCursorPos.X)
 }
 
 func escapeSaveCursor(t *Terminal, _ string) {
-	t.buffer.savedRows = uint16(t.buffer.cursorPos.Y)
-	t.buffer.savedCols = uint16(t.buffer.cursorPos.X)
-}
-
-func escapeSetScrollArea(t *Terminal, msg string) {
-	parts := strings.Split(msg, ";")
-	start := 0
-	end := int(t.buffer.rows) - 1
-	if len(parts) == 2 {
-		if parts[0] != "" {
-			start, _ = strconv.Atoi(parts[0])
-			start--
-		}
-		if parts[1] != "" {
-			end, _ = strconv.Atoi(parts[1])
-			end--
-		}
-	}
+	t.buffer.savedCursorPos.Y = t.buffer.cursorPos.Y
+	t.buffer.savedCursorPos.X = t.buffer.cursorPos.X
 }
 
 func escapeColorMode(t *Terminal, msg string) {
@@ -204,128 +180,17 @@ func escapeColorMode(t *Terminal, msg string) {
 	}
 }
 
-func (t *Terminal) handleColorModeRGB(mode, rs, gs, bs string) {
-	r, _ := strconv.Atoi(rs)
-	g, _ := strconv.Atoi(gs)
-	b, _ := strconv.Atoi(bs)
-	c := &color.RGBA{uint8(r), uint8(g), uint8(b), 255}
-
-	if mode == "38" {
-		t.currentFG = c
-	} else if mode == "48" {
-		t.currentBG = c
-	}
-}
-
-func (t *Terminal) handleColorMode(modeStr string) {
-	mode, err := strconv.Atoi(modeStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	switch mode {
-	case 0:
-		t.currentBG, t.currentFG = nil, nil
-		t.bright = false
-	case 1:
-		t.bright = true
-	case 4, 24: // italic
-	case 7: // reverse
-		bg := t.currentBG
-		if t.currentFG == nil {
-			t.currentBG = &colornames.White
-		} else {
-			t.currentBG = t.currentFG
-		}
-		if bg == nil {
-			t.currentFG = &colornames.White
-		} else {
-			t.currentFG = bg
-		}
-	case 27: // reverse off
-		bg := t.currentBG
-		if t.currentFG == &colornames.White {
-			t.currentBG = nil
-		} else {
-			t.currentBG = t.currentFG
-		}
-		if bg == &colornames.Black {
-			t.currentFG = nil
-		} else {
-			t.currentFG = bg
-		}
-	case 30, 31, 32, 33, 34, 35, 36, 37:
-		if t.bright {
-			t.currentFG = brightColors[mode-30]
-		} else {
-			t.currentFG = basicColors[mode-30]
-		}
-	case 39:
-		t.currentFG = nil
-	case 40, 41, 42, 43, 44, 45, 46, 47:
-		if t.bright {
-			t.currentBG = brightColors[mode-40]
-		} else {
-			t.currentBG = basicColors[mode-40]
-		}
-	case 49:
-		t.currentBG = nil
-	case 90, 91, 92, 93, 94, 95, 96, 97:
-		t.currentFG = brightColors[mode-90]
-	case 100, 101, 102, 103, 104, 105, 106, 107:
-		t.currentBG = brightColors[mode-100]
-	default:
-		if t.debug {
-			log.Println("Unsupported graphics mode", mode)
-		}
-	}
-}
-
-func (t *Terminal) handleColorModeMap(mode, ids string) {
-	var c color.Color
-	id, err := strconv.Atoi(ids)
-	if err != nil {
-		if t.debug {
-			log.Println("Invalid color map ID", ids)
-		}
-		return
-	}
-	if id <= 7 {
-		c = basicColors[id]
-	} else if id <= 15 {
-		c = brightColors[id-8]
-	} else if id <= 231 {
-		inc := 256 / 5
-		id -= 16
-		b := id % 6
-		id = (id - b) / 6
-		g := id % 6
-		r := (id - g) / 6
-		c = &color.RGBA{uint8(r * inc), uint8(g * inc), uint8(b * inc), 255}
-	} else if id <= 255 {
-		id -= 232
-		inc := 256 / 24
-		y := id * inc
-		c = &color.Gray{uint8(y)}
-	} else if t.debug {
-		log.Println("Invalid colour map ID", id)
-	}
-
-	if mode == "38" {
-
-		t.currentFG = c
-	} else if mode == "48" {
-
-		t.currentBG = c
-	}
-}
-
 func escapeEraseInScreen(t *Terminal, msg string) {
 	mode, _ := strconv.Atoi(msg)
 	switch mode {
 	case 0:
-
+		line := t.buffer.Row(t.buffer.cursorPos.Y)
+		line.Chars = line.Chars[t.buffer.cursorPos.X:]
+		t.buffer.lines = t.buffer.lines[t.buffer.cursorPos.Y:]
 	case 1:
-
+		line := t.buffer.Row(t.buffer.cursorPos.Y)
+		line.Chars = line.Chars[:t.buffer.cursorPos.X]
+		t.buffer.lines = t.buffer.lines[:t.buffer.cursorPos.Y]
 	case 2:
 		t.Clear()
 	}
@@ -338,26 +203,37 @@ func escapeInsertLines(t *Terminal, msg string) {
 	}
 	i := t.scrollOffset
 	for ; i > t.buffer.cursorPos.Y-rows; i-- {
-
 		t.buffer.SetRow(i, t.buffer.Row(i-rows).Chars)
 	}
 	for ; i >= t.buffer.cursorPos.Y; i-- {
 		t.buffer.SetRow(i, []Char{})
 	}
-
 }
 
 func escapeEraseInLine(t *Terminal, msg string) {
 	mode, _ := strconv.Atoi(msg)
 	switch mode {
 	case 0:
-		line := t.buffer.getLine(t.buffer.cursorPos.Y)
-		line.Chars = line.Chars[:t.buffer.cursorPos.X]
+		row := t.buffer.Row(t.buffer.cursorPos.Y)
+		if t.buffer.cursorPos.X >= len(row.Chars) {
+			return
+		}
+		t.buffer.SetRow(t.buffer.cursorPos.Y, row.Chars[:t.buffer.cursorPos.X])
 	case 1:
-		line := t.buffer.getLine(t.buffer.cursorPos.Y)
-		line.Chars = line.Chars[t.buffer.cursorPos.X:]
+		row := t.buffer.Row(t.buffer.cursorPos.Y)
+		if t.buffer.cursorPos.X >= len(row.Chars) {
+			return
+		}
+		chars := make([]Char, t.buffer.cursorPos.X)
+		t.buffer.SetRow(t.buffer.cursorPos.Y, append(chars, row.Chars[t.buffer.cursorPos.X:]...))
 	case 2:
-		t.buffer.clear()
+		row := t.buffer.Row(t.buffer.cursorPos.Y)
+		if t.buffer.cursorPos.X >= len(row.Chars) {
+			return
+		}
+		chars := make([]Char, len(row.Chars))
+
+		t.buffer.SetRow(t.buffer.cursorPos.Y, chars)
 	}
 }
 
@@ -366,10 +242,11 @@ func escapeDeleteChars(t *Terminal, msg string) {
 	right := t.buffer.cursorPos.X + i
 
 	row := t.buffer.Row(t.buffer.cursorPos.Y)
+
 	cells := row.Chars[:t.buffer.cursorPos.X]
 	cells = append(cells, make([]Char, i)...)
 	if right < len(t.buffer.lines) {
-		cells = append(cells, cells[right:]...)
+		cells = append(cells, row.Chars[right:]...)
 	}
 
 	t.buffer.SetRow(t.buffer.cursorPos.Y, cells)

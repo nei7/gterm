@@ -52,7 +52,7 @@ func getHomeDir() string {
 }
 
 func startPty(homedir string) (*os.File, error) {
-	_ = os.Chdir(homedir + "Projects/gterm")
+	_ = os.Chdir(homedir)
 
 	os.Setenv("TERM", "xterm-256color")
 	cmd := exec.Command("/bin/bash")
@@ -99,13 +99,14 @@ func (t *Terminal) Run() {
 			break
 		}
 
-		t.Print(buf[:num])
+		t.handleOutput(buf[:num])
+
 		t.ScrollToBottom()
 	}
 }
 
 func (t *Terminal) Backspace() {
-	last := &t.buffer.lines[t.buffer.cursorPos.Y]
+	last := t.buffer.Row(t.buffer.cursorPos.Y)
 	last.Chars = last.Chars[:t.buffer.cursorPos.X-1]
 	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X-1)
 }
