@@ -1,5 +1,7 @@
 package term
 
+import "fmt"
+
 const (
 	asciBell       = 7
 	asciiBackspace = 8
@@ -60,7 +62,11 @@ func (t *Terminal) handleOutput(out []byte) {
 			case '8':
 				t.buffer.savedCursorPos.X = t.buffer.cursorPos.X
 				t.buffer.savedCursorPos.Y = t.buffer.cursorPos.Y
-
+			case 'D':
+				t.ScrollDown()
+			case 'M':
+				t.ScrollUp()
+			case '=', '>':
 			}
 
 			state.esc = noEscape
@@ -109,7 +115,8 @@ func (t *Terminal) handleOutput(out []byte) {
 			t.moveCursor(t.buffer.cursorPos.Y+1, t.buffer.cursorPos.X)
 
 		case r == asciiTab:
-			end := t.buffer.cursorPos.X - t.buffer.cursorPos.X%tabWidth + tabWidth
+			fmt.Println("123")
+			end := t.buffer.cursorPos.X + tabWidth
 
 			for t.buffer.cursorPos.X < end {
 
@@ -121,15 +128,12 @@ func (t *Terminal) handleOutput(out []byte) {
 			}
 
 		default:
-
 			t.buffer.insertChar(Char{
 				R:       r,
 				FgColor: t.currentFG,
 				BgColor: t.currentBG,
 			})
-
 		}
-
 	}
 
 	if state.esc != noEscape {

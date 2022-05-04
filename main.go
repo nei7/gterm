@@ -14,7 +14,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	t := gui.New(config)
+	t := gui.NewGUI(config)
 
 	pixelgl.Run(t.Run)
 }

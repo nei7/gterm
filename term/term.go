@@ -7,6 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/creack/pty"
+	"github.com/faiface/pixel"
 	"golang.org/x/image/colornames"
 )
 
@@ -17,7 +18,7 @@ type Terminal struct {
 	title string
 	debug bool
 
-	scrollOffset int
+	scrollOffset, scrollTop, scrollBottom int
 
 	currentFG color.Color
 	currentBG color.Color
@@ -65,11 +66,12 @@ func startPty(homedir string) (*os.File, error) {
 	return pt, nil
 }
 
-func (t *Terminal) SetSize(rows, cols uint16) error {
-	t.buffer.setSize(rows, cols)
+func (t *Terminal) SetPtySize(size pixel.Vec) error {
 	if err := pty.Setsize(t.pty, &pty.Winsize{
-		Rows: rows,
-		Cols: cols,
+		Rows: t.buffer.rows,
+		Cols: t.buffer.cols,
+		X:    uint16(size.X),
+		Y:    uint16(size.Y),
 	}); err != nil {
 		return err
 	}
@@ -106,8 +108,8 @@ func (t *Terminal) Run() {
 }
 
 func (t *Terminal) Backspace() {
-	last := t.buffer.Row(t.buffer.cursorPos.Y)
-	last.Chars = last.Chars[:t.buffer.cursorPos.X-1]
+	last := t.buffer.Row(t.buffer.cursorPos.Y).Chars
+	last = last[:t.buffer.cursorPos.X-1]
 	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X-1)
 }
 
@@ -142,8 +144,12 @@ func (t *Terminal) ScrollUp() {
 }
 
 func (t *Terminal) ScrollToBottom() {
-
 	if len(t.buffer.lines)-int(t.buffer.rows) > 0 {
 		t.scrollOffset = len(t.buffer.lines) - int(t.buffer.rows)
 	}
+}
+
+func (t *Terminal) SetSize(rows, cols uint16) {
+	t.buffer.rows = rows
+	t.buffer.cols = cols
 }

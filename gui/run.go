@@ -2,6 +2,7 @@ package gui
 
 import (
 	"log"
+	"time"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
@@ -9,6 +10,7 @@ import (
 )
 
 func (g *GUI) Run() {
+
 	win, err := pixelgl.NewWindow(pixelgl.WindowConfig{
 		Title:     "gterm",
 		Bounds:    pixel.R(0, 0, 1024, 768),
@@ -23,6 +25,7 @@ func (g *GUI) Run() {
 
 	go g.terminal.Run()
 
+	fps := time.Tick(time.Second / 60)
 	for !win.Closed() {
 		win.Clear(colornames.Black)
 
@@ -32,5 +35,8 @@ func (g *GUI) Run() {
 
 		win.Update()
 
+		time.Sleep(time.Millisecond * 50)
+
+		<-fps
 	}
 }

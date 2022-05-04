@@ -28,7 +28,7 @@ type GUI struct {
 	terminal *term.Terminal
 }
 
-func New(config *config.Config) *GUI {
+func NewGUI(config *config.Config) *GUI {
 	g := &GUI{}
 
 	fontPath := fmt.Sprintf("/usr/share/fonts/TTF/%s.ttf", config.Font.Family)
@@ -60,8 +60,17 @@ func (g *GUI) setupWindow(w *pixelgl.Window) {
 		Y: g.height - atlas.Ascent() - g.config.Window.Padding.Y,
 	}, atlas)
 
-	cols := int(g.width / g.text.LineHeight)
+	g.Resize()
+}
+
+func (g *GUI) Resize() {
+	windowSize := g.window.Bounds().Size()
+
+	cols := int(g.width / g.text.atlas.Glyph(' ').Advance)
 	rows := int(g.height / (g.text.LineHeight))
 
 	g.terminal.SetSize(uint16(rows), uint16(cols))
+
+	g.terminal.SetPtySize(windowSize)
+
 }

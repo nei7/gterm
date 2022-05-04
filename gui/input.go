@@ -26,6 +26,7 @@ func (g *GUI) handleInput() {
 		g.terminal.Write([]byte{'\n'})
 
 	case g.window.JustReleased(pixelgl.KeyTab):
+
 		g.terminal.Write([]byte{'\t'})
 
 	case g.window.JustPressed(pixelgl.KeyBackspace):

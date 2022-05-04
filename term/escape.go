@@ -1,36 +1,11 @@
 package term
 
 import (
-	"image/color"
 	"log"
 	"strconv"
 	"strings"
-
-	"golang.org/x/image/colornames"
 )
 
-var (
-	basicColors = []color.RGBA{
-		colornames.Black,
-		{170, 0, 0, 255},
-		{0, 170, 0, 255},
-		{170, 170, 0, 255},
-		{0, 0, 170, 255},
-		{170, 0, 170, 255},
-		{0, 255, 255, 255},
-		{170, 170, 170, 255},
-	}
-	brightColors = []color.RGBA{
-		{85, 85, 85, 255},
-		{255, 85, 85, 255},
-		{85, 255, 85, 255},
-		{255, 255, 85, 255},
-		{85, 85, 255, 255},
-		{255, 85, 255, 255},
-		{85, 255, 255, 255},
-		{255, 255, 255, 255},
-	}
-)
 var escapes = map[rune]func(*Terminal, string){
 	'A': escapeMoveCursorUp,
 	'B': escapeMoveCursorDown,
@@ -40,6 +15,7 @@ var escapes = map[rune]func(*Terminal, string){
 	'H': escapeMoveCursor,
 	'f': escapeMoveCursor,
 	'G': escapeMoveCursorCol,
+	'r': escapeSetScrollArea,
 	'L': escapeInsertLines,
 	'm': escapeColorMode,
 	'J': escapeEraseInScreen,
@@ -103,20 +79,20 @@ func escapeMoveCursorDown(t *Terminal, msg string) {
 }
 
 func escapeMoveCursorRight(t *Terminal, msg string) {
-	cols, _ := strconv.Atoi(msg)
-	if cols == 0 {
-		cols = 1
+	right, _ := strconv.Atoi(msg)
+	if right == 0 {
+		right = 1
 	}
-	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X+cols)
+	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X+right)
 }
 
 func escapeMoveCursorLeft(t *Terminal, msg string) {
-	cols, _ := strconv.Atoi(msg)
-	if cols == 0 {
-		cols = 1
+	left, _ := strconv.Atoi(msg)
+	if left == 0 {
+		left = 1
 	}
 
-	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X-cols)
+	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X-left)
 }
 
 func escapeMoveCursorRow(t *Terminal, msg string) {
@@ -201,7 +177,7 @@ func escapeInsertLines(t *Terminal, msg string) {
 	if rows == 0 {
 		rows = 1
 	}
-	i := t.scrollOffset
+	i := t.scrollBottom
 	for ; i > t.buffer.cursorPos.Y-rows; i-- {
 		t.buffer.SetRow(i, t.buffer.Row(i-rows).Chars)
 	}
@@ -250,4 +226,23 @@ func escapeDeleteChars(t *Terminal, msg string) {
 	}
 
 	t.buffer.SetRow(t.buffer.cursorPos.Y, cells)
+}
+
+func escapeSetScrollArea(t *Terminal, msg string) {
+	parts := strings.Split(msg, ";")
+	start := 0
+	end := int(t.buffer.rows) - 1
+	if len(parts) == 2 {
+		if parts[0] != "" {
+			start, _ = strconv.Atoi(parts[0])
+			start--
+		}
+		if parts[1] != "" {
+			end, _ = strconv.Atoi(parts[1])
+			end--
+		}
+	}
+
+	t.scrollTop = start
+	t.scrollBottom = end
 }

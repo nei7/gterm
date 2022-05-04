@@ -33,33 +33,50 @@ func NewBuffer() *Buffer {
 	return buf
 }
 
-func (buf *Buffer) setSize(rows, cols uint16) {
-	buf.rows = rows
-	buf.cols = cols
-}
-
 func (buf *Buffer) insertLine() {
 	buf.lines = append(buf.lines, Line{})
 }
 
 func (buf *Buffer) insertChar(char Char) {
+	if buf.cursorPos.X < 0 || buf.cursorPos.Y < 0 {
+		return
+	}
+
+	if buf.cursorPos.X >= int(buf.cols) {
+		return
+	}
 
 	for len(buf.lines)-1 < buf.cursorPos.Y {
 		buf.insertLine()
 	}
 
-	line := buf.cursorPos.Y
-	if line < 0 || line > len(buf.lines) {
-		return
-	}
-
-	for len(buf.lines[line].Chars) < buf.cursorPos.X {
-		buf.lines[line].Chars = append(buf.lines[line].Chars, Char{
+	for len(buf.lines[buf.cursorPos.Y].Chars)-1 < buf.cursorPos.X {
+		buf.lines[buf.cursorPos.Y].Chars = append(buf.lines[buf.cursorPos.Y].Chars, Char{
 			R: ' ',
 		})
 	}
 
-	buf.lines[line].Chars = append(buf.lines[line].Chars, char)
+	cell := buf.lines[buf.cursorPos.Y].Chars[buf.cursorPos.X]
+	if cell.R != char.R || char.FgColor != cell.FgColor || char.BgColor != cell.BgColor {
+		cell.R = char.R
+		cell.BgColor = char.BgColor
+		cell.FgColor = char.FgColor
+
+		for len(buf.lines) <= buf.cursorPos.Y {
+			buf.insertLine()
+		}
+		data := buf.lines[buf.cursorPos.Y]
+
+		for len(data.Chars) <= buf.savedCursorPos.X {
+			data.Chars = append(data.Chars, Char{
+				R: ' ',
+			})
+			buf.lines[buf.cursorPos.Y] = data
+		}
+
+		buf.lines[buf.cursorPos.Y].Chars[buf.cursorPos.X] = cell
+	}
+
 	buf.cursorPos.X++
 }
 
