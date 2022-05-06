@@ -5,7 +5,6 @@ import (
 )
 
 type Char struct {
-	Id      int
 	R       rune
 	FgColor color.Color
 	BgColor color.Color
@@ -81,14 +80,14 @@ func (buf *Buffer) insertChar(char Char) {
 }
 
 func (buf *Buffer) clear() {
-	buf.cursorPos = struct {
+	p := struct {
 		X int
 		Y int
 	}{
 		0, 0,
 	}
-	buf.cursorPos.X = 0
-	buf.cursorPos.Y = 0
+	buf.cursorPos = p
+	buf.savedCursorPos = p
 
 	buf.lines = []Line{}
 }

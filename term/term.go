@@ -25,7 +25,7 @@ type Terminal struct {
 	bright    bool
 }
 
-func New() *Terminal {
+func New(buffer *Buffer) *Terminal {
 	t := &Terminal{}
 
 	pty, err := startPty(getHomeDir())
@@ -34,7 +34,6 @@ func New() *Terminal {
 	}
 	t.pty = pty
 
-	buffer := NewBuffer()
 	t.buffer = buffer
 
 	t.currentFG = colornames.White
@@ -87,6 +86,19 @@ func (t *Terminal) Write(buf []byte) error {
 	return err
 }
 
+func (t *Terminal) GetLines() []Line {
+	if len(t.buffer.lines) < int(t.buffer.rows) {
+		return t.buffer.lines
+	}
+
+	offset := int(t.buffer.rows) + t.scrollOffset
+	if length := len(t.buffer.lines); offset >= length {
+		return t.buffer.lines[t.scrollOffset:length]
+	}
+
+	return t.buffer.lines[t.scrollOffset:offset]
+}
+
 func (t *Terminal) Run() {
 	buf := make([]byte, 2048)
 	for {
@@ -117,20 +129,10 @@ func (t *Terminal) Clear() {
 	t.buffer.clear()
 }
 
-func (t *Terminal) GetLines() []Line {
-	if len(t.buffer.lines) < int(t.buffer.rows) {
-		return t.buffer.lines
-	}
-
-	offset := int(t.buffer.rows) + t.scrollOffset
-	if length := len(t.buffer.lines); offset >= length {
-		return t.buffer.lines[t.scrollOffset:length]
-	}
-
-	return t.buffer.lines[t.scrollOffset:offset]
+func (t *Terminal) Height() uint16 {
+	return t.buffer.rows
 }
 
-// Handle scroll
 func (t *Terminal) ScrollDown() {
 	if t.scrollOffset < len(t.buffer.lines)-int(t.buffer.rows) {
 		t.scrollOffset++

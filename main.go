@@ -5,7 +5,7 @@ import (
 
 	"github.com/faiface/pixel/pixelgl"
 	"github.com/nei7/gterm/config"
-	"github.com/nei7/gterm/gui"
+	"github.com/nei7/gterm/renderer"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	t := gui.NewGUI(config)
+	t := renderer.NewRenderer(config)
 
 	pixelgl.Run(t.Run)
 }

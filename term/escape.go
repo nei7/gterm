@@ -160,13 +160,33 @@ func escapeEraseInScreen(t *Terminal, msg string) {
 	mode, _ := strconv.Atoi(msg)
 	switch mode {
 	case 0:
-		line := t.buffer.Row(t.buffer.cursorPos.Y)
-		line.Chars = line.Chars[t.buffer.cursorPos.X:]
-		t.buffer.lines = t.buffer.lines[t.buffer.cursorPos.Y:]
+		// Clear from cursor
+		row := t.buffer.Row(t.buffer.cursorPos.Y)
+		from := t.buffer.savedCursorPos.X
+		if t.buffer.cursorPos.X >= len(row.Chars) {
+			from = len(row.Chars) - 1
+		}
+		if from > 0 {
+			t.buffer.SetRow(t.buffer.cursorPos.Y, row.Chars[:from])
+		} else {
+			t.buffer.SetRow(t.buffer.cursorPos.Y, []Char{})
+		}
+
+		for i := t.buffer.cursorPos.Y + 1; i < len(t.buffer.lines); i++ {
+			t.buffer.SetRow(i, []Char{})
+		}
 	case 1:
-		line := t.buffer.Row(t.buffer.cursorPos.Y)
-		line.Chars = line.Chars[:t.buffer.cursorPos.X]
-		t.buffer.lines = t.buffer.lines[:t.buffer.cursorPos.Y]
+		// Clear to cursor
+		row := t.buffer.Row(t.buffer.cursorPos.Y)
+		chars := make([]Char, t.buffer.cursorPos.X)
+		if t.buffer.cursorPos.X < len(row.Chars) {
+			chars = append(chars, row.Chars[t.buffer.cursorPos.X:]...)
+		}
+		t.buffer.SetRow(t.buffer.cursorPos.Y, chars)
+
+		for i := 0; i < t.buffer.cursorPos.Y-1; i++ {
+			t.buffer.SetRow(i, []Char{})
+		}
 	case 2:
 		t.Clear()
 	}

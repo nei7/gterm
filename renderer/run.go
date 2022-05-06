@@ -1,4 +1,4 @@
-package gui
+package renderer
 
 import (
 	"log"
@@ -9,8 +9,7 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-func (g *GUI) Run() {
-
+func (g *Renderer) Run() {
 	win, err := pixelgl.NewWindow(pixelgl.WindowConfig{
 		Title:     "gterm",
 		Bounds:    pixel.R(0, 0, 1024, 768),
@@ -25,7 +24,7 @@ func (g *GUI) Run() {
 
 	go g.terminal.Run()
 
-	fps := time.Tick(time.Second / 60)
+	fps := time.Tick(time.Second / 120)
 	for !win.Closed() {
 		win.Clear(colornames.Black)
 
@@ -34,8 +33,6 @@ func (g *GUI) Run() {
 		g.drawText()
 
 		win.Update()
-
-		time.Sleep(time.Millisecond * 50)
 
 		<-fps
 	}

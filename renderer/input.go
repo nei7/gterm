@@ -1,10 +1,10 @@
-package gui
+package renderer
 
 import (
 	"github.com/faiface/pixel/pixelgl"
 )
 
-func (g *GUI) handleInput() {
+func (g *Renderer) handleInput() error {
 	scroll := g.window.MouseScroll()
 
 	switch {
@@ -19,21 +19,25 @@ func (g *GUI) handleInput() {
 	case g.window.Pressed(pixelgl.KeyLeftControl):
 		switch {
 		case g.window.JustPressed(pixelgl.KeyC):
-			g.terminal.Write([]byte{3})
+			return g.terminal.Write([]byte{3})
 		}
 
 	case g.window.JustPressed(pixelgl.KeyEnter):
-		g.terminal.Write([]byte{'\n'})
+		return g.terminal.Write([]byte{'\n'})
 
 	case g.window.JustReleased(pixelgl.KeyTab):
-
-		g.terminal.Write([]byte{'\t'})
+		return g.terminal.Write([]byte{'\t'})
 
 	case g.window.JustPressed(pixelgl.KeyBackspace):
-		g.terminal.Write([]byte{8})
+		return g.terminal.Write([]byte{8})
+
+	case g.window.JustPressed(pixelgl.KeyEscape):
+		return g.terminal.Write([]byte{27})
 
 	default:
-		g.terminal.Write([]byte(g.window.Typed()))
+		return g.terminal.Write([]byte(g.window.Typed()))
 
 	}
+
+	return nil
 }

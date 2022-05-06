@@ -1,7 +1,5 @@
 package term
 
-import "fmt"
-
 const (
 	asciBell       = 7
 	asciiBackspace = 8
@@ -9,7 +7,6 @@ const (
 	asciiCarriage  = '\r'
 	asciiNewLine   = '\n'
 	asciiTab       = '\t'
-
 	noEscape = -100
 	tabWidth = 8
 )
@@ -26,7 +23,6 @@ type parseState struct {
 
 func (t *Terminal) handleOutput(out []byte) {
 	var previous *parseState
-
 	state := &parseState{}
 	if previous != nil {
 		state = previous
@@ -36,7 +32,6 @@ func (t *Terminal) handleOutput(out []byte) {
 	}
 
 	runes := []rune(string(out))
-
 	for i, r := range runes {
 		if r == asciiEscape {
 			state.esc = i
@@ -68,7 +63,6 @@ func (t *Terminal) handleOutput(out []byte) {
 				t.ScrollUp()
 			case '=', '>':
 			}
-
 			state.esc = noEscape
 			continue
 		}
@@ -82,15 +76,12 @@ func (t *Terminal) handleOutput(out []byte) {
 			}
 			continue
 		}
-
 		if state.vt100 != 0 {
 			state.vt100 = 0
 			continue
 		}
-
 		if state.esc != noEscape {
 			state.s += string(r)
-
 			if (r < '0' || r > '9') && r != ';' && r != '=' && r != '?' {
 				t.handleEscape(state.s)
 				state.s = ""
@@ -115,7 +106,6 @@ func (t *Terminal) handleOutput(out []byte) {
 			t.moveCursor(t.buffer.cursorPos.Y+1, t.buffer.cursorPos.X)
 
 		case r == asciiTab:
-			fmt.Println("123")
 			end := t.buffer.cursorPos.X + tabWidth
 
 			for t.buffer.cursorPos.X < end {

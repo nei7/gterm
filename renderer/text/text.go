@@ -1,16 +1,14 @@
-package gui
+package text
 
 import (
 	"image/color"
-	"io/ioutil"
-	"os"
+	"unicode"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/text"
-	"github.com/goki/freetype/truetype"
+	manager "github.com/nei7/gterm/font"
 	"github.com/nei7/gterm/term"
 	"golang.org/x/image/colornames"
-	"golang.org/x/image/font"
 )
 
 // https://github.com/faiface/pixel/blob/master/text/text.go
@@ -38,6 +36,8 @@ type Text struct {
 
 	batch  *pixel.Batch
 	sprite *pixel.Sprite
+
+	manager *manager.Manager
 }
 
 type selection struct {
@@ -45,7 +45,10 @@ type selection struct {
 	mat     pixel.Matrix
 }
 
-func NewText(orig pixel.Vec, atlas *text.Atlas) *Text {
+func NewText(orig pixel.Vec, fontManager *manager.Manager) *Text {
+
+	atlas := text.NewAtlas(fontManager.RegularFontFace(), text.ASCII, text.RangeTable(unicode.Latin))
+
 	txt := &Text{
 		Orig:       orig,
 		Dot:        orig,
@@ -55,6 +58,7 @@ func NewText(orig pixel.Vec, atlas *text.Atlas) *Text {
 		atlas:      atlas,
 		mat:        pixel.IM,
 		col:        pixel.Alpha(1),
+		manager:    fontManager,
 	}
 
 	txt.glyph.SetLen(6)
@@ -68,9 +72,8 @@ func NewText(orig pixel.Vec, atlas *text.Atlas) *Text {
 
 	txt.Clear()
 
-	size := txt.atlas.Glyph('Q').Frame.Size()
-
-	txt.batch, txt.sprite = createBatch(size)
+	size := fontManager.CharSize()
+	txt.batch, txt.sprite = createBatch(pixel.V(float64(size.X), float64(size.Y)))
 
 	return txt
 }
@@ -96,29 +99,6 @@ func createSpritesheet(size pixel.Vec, color color.Color) *pixel.PictureData {
 	}
 
 	return spritesheet
-}
-
-func loadTTF(path string, size float64) (font.Face, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	bytes, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-
-	font, err := truetype.Parse(bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return truetype.NewFace(font, &truetype.Options{
-		Size:              size,
-		GlyphCacheEntries: 1,
-	}), nil
 }
 
 func (txt *Text) Atlas() *text.Atlas {
@@ -159,6 +139,7 @@ func (txt *Text) Clear() {
 }
 
 func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix, lines []term.Line) {
+	txt.Clear()
 	txt.batch.Clear()
 
 	txt.drawBuff(lines, t)
@@ -188,18 +169,17 @@ func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix, lines []term.Line) {
 
 func (txt *Text) drawBuff(lines []term.Line, t pixel.Target) {
 
-	txt.Clear()
-
 	for _, line := range lines {
 		for _, ch := range line.Chars {
 
 			if ch.FgColor == nil {
-				ch.FgColor = colornames.White
+				ch.FgColor = color.White
 			}
 
 			for i := range txt.glyph {
 				txt.glyph[i].Color = pixel.ToRGBA(ch.FgColor)
 			}
+
 			var rect, frame, bounds pixel.Rect
 			rect, frame, bounds, txt.Dot = txt.Atlas().DrawRune(txt.prevR, ch.R, txt.Dot)
 
@@ -228,11 +208,10 @@ func (txt *Text) drawBuff(lines []term.Line, t pixel.Target) {
 			txt.tris = append(txt.tris, txt.glyph...)
 			txt.dirty = true
 
+			// Draw background
 			if ch.BgColor != nil {
 
-				w, h := frame.W()/txt.sprite.Frame().W(), frame.H()/txt.sprite.Frame().H()
-
-				mat := pixel.IM.ScaledXY(pixel.ZV, pixel.V(w+txt.Dot.X-rect.Max.X, h)).Moved(rect.Center())
+				mat := pixel.IM.Moved(rect.Center())
 
 				txt.sprite.DrawColorMask(txt.batch, mat, ch.BgColor)
 			}
@@ -247,7 +226,6 @@ func (txt *Text) drawBuff(lines []term.Line, t pixel.Target) {
 
 		txt.Dot.X = txt.Orig.X
 		txt.Dot.Y -= txt.LineHeight
-
 	}
 
 	txt.batch.Draw(t)
