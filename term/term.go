@@ -121,7 +121,10 @@ func (t *Terminal) Run() {
 
 func (t *Terminal) Backspace() {
 	last := t.buffer.Row(t.buffer.cursorPos.Y).Chars
-	last = last[:t.buffer.cursorPos.X-1]
+	if len(last) > 0 {
+		last = last[:t.buffer.cursorPos.X-1]
+	}
+
 	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X-1)
 }
 

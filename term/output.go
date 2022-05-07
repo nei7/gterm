@@ -7,8 +7,8 @@ const (
 	asciiCarriage  = '\r'
 	asciiNewLine   = '\n'
 	asciiTab       = '\t'
-	noEscape = -100
-	tabWidth = 8
+	noEscape       = -100
+	tabWidth       = 8
 )
 
 type parseState struct {
@@ -22,16 +22,12 @@ type parseState struct {
 }
 
 func (t *Terminal) handleOutput(out []byte) {
-	var previous *parseState
-	state := &parseState{}
-	if previous != nil {
-		state = previous
-		previous = nil
-	} else {
-		state.esc = noEscape
+	state := &parseState{
+		esc: noEscape,
 	}
 
 	runes := []rune(string(out))
+	
 	for i, r := range runes {
 		if r == asciiEscape {
 			state.esc = i
@@ -96,26 +92,13 @@ func (t *Terminal) handleOutput(out []byte) {
 
 		case r == asciiBackspace:
 			t.Backspace()
+			continue
 
-		case r == asciBell:
-
-		case r == 0x0e || r == 0x0f:
+		case r == 0x0e || r == 0x0f || r == asciBell:
 			continue
 
 		case r == asciiNewLine:
 			t.moveCursor(t.buffer.cursorPos.Y+1, t.buffer.cursorPos.X)
-
-		case r == asciiTab:
-			end := t.buffer.cursorPos.X + tabWidth
-
-			for t.buffer.cursorPos.X < end {
-
-				t.buffer.insertChar(Char{
-					R:       ' ',
-					FgColor: t.currentFG,
-					BgColor: t.currentBG,
-				})
-			}
 
 		default:
 			t.buffer.insertChar(Char{
@@ -128,6 +111,6 @@ func (t *Terminal) handleOutput(out []byte) {
 
 	if state.esc != noEscape {
 		state.esc = -1 - (len(state.s))
-		previous = state
 	}
+
 }

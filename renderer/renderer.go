@@ -34,19 +34,17 @@ func NewRenderer(config *config.Config) *Renderer {
 
 func (r *Renderer) setupWindow(w *pixelgl.Window) {
 	r.window = w
-
 	r.windowSize = w.Bounds().Size()
 
 	fontManager := font.NewManager()
-	err := fontManager.SetFont("Sauce Code Pro Medium Nerd Font Complete Mono")
+	err := fontManager.SetFont("SauceCodePro Nerd Font Mono")
 	if err != nil {
 		log.Fatal(err)
 	}
+	r.fontManager = fontManager
 
 	txtPos := pixel.V(0, r.windowSize.Y-float64(fontManager.CharSize().Y))
 	r.text = text.NewText(txtPos, fontManager)
-
-	r.fontManager = fontManager
 
 	r.ResizeTerminal()
 }

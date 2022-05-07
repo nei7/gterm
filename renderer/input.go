@@ -5,23 +5,13 @@ import (
 )
 
 func (g *Renderer) handleInput() error {
-	scroll := g.window.MouseScroll()
 
 	switch {
-	case scroll.Y != 0:
-		switch {
-		case scroll.Y < 0:
-			g.terminal.ScrollDown()
-		case scroll.Y > 0:
-			g.terminal.ScrollUp()
-		}
-
 	case g.window.Pressed(pixelgl.KeyLeftControl):
 		switch {
 		case g.window.JustPressed(pixelgl.KeyC):
 			return g.terminal.Write([]byte{3})
 		}
-
 	case g.window.JustPressed(pixelgl.KeyEnter):
 		return g.terminal.Write([]byte{'\n'})
 
@@ -36,8 +26,18 @@ func (g *Renderer) handleInput() error {
 
 	default:
 		return g.terminal.Write([]byte(g.window.Typed()))
-
 	}
 
 	return nil
+}
+
+func (g *Renderer) handleScroll() {
+	scroll := g.window.MouseScroll()
+	if scroll.Y != 0 {
+		if scroll.Y < 0 {
+			g.terminal.ScrollDown()
+		} else {
+			g.terminal.ScrollUp()
+		}
+	}
 }

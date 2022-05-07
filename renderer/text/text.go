@@ -14,7 +14,6 @@ import (
 // https://github.com/faiface/pixel/blob/master/text/text.go
 type Text struct {
 	Orig pixel.Vec
-	Dot  pixel.Vec
 
 	Color color.Color
 
@@ -51,14 +50,14 @@ func NewText(orig pixel.Vec, fontManager *manager.Manager) *Text {
 
 	txt := &Text{
 		Orig:       orig,
-		Dot:        orig,
 		Color:      pixel.Alpha(1),
 		LineHeight: atlas.LineHeight(),
 		TabWidth:   atlas.Glyph(' ').Advance * 4,
 		atlas:      atlas,
-		mat:        pixel.IM,
-		col:        pixel.Alpha(1),
-		manager:    fontManager,
+
+		mat:     pixel.IM,
+		col:     pixel.Alpha(1),
+		manager: fontManager,
 	}
 
 	txt.glyph.SetLen(6)
@@ -109,45 +108,17 @@ func (txt *Text) Bounds() pixel.Rect {
 	return txt.bounds
 }
 
-func (txt *Text) BoundsOf(s string) pixel.Rect {
-	dot := txt.Dot
-	prevR := txt.prevR
-	bounds := pixel.Rect{}
-
-	for _, r := range s {
-		var b pixel.Rect
-		_, _, b, dot = txt.Atlas().DrawRune(prevR, r, dot)
-
-		if bounds.W()*bounds.H() == 0 {
-			bounds = b
-		} else {
-			bounds = bounds.Union(b)
-		}
-
-		prevR = r
-	}
-
-	return bounds
-}
-
 func (txt *Text) Clear() {
 	txt.prevR = -1
 	txt.bounds = pixel.Rect{}
 	txt.tris.SetLen(0)
 	txt.dirty = true
-	txt.Dot = txt.Orig
 }
 
-func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix, lines []term.Line) {
+func (txt *Text) Draw(t pixel.Target, lines []term.Line) {
 	txt.Clear()
 	txt.batch.Clear()
-
 	txt.drawBuff(lines, t)
-
-	if matrix != txt.mat {
-		txt.mat = matrix
-		txt.dirty = true
-	}
 
 	if txt.dirty {
 		txt.trans.SetLen(txt.tris.Len())
@@ -169,8 +140,8 @@ func (txt *Text) Draw(t pixel.Target, matrix pixel.Matrix, lines []term.Line) {
 
 func (txt *Text) drawBuff(lines []term.Line, t pixel.Target) {
 
-	for _, line := range lines {
-		for _, ch := range line.Chars {
+	for y, line := range lines {
+		for x, ch := range line.Chars {
 
 			if ch.FgColor == nil {
 				ch.FgColor = color.White
@@ -180,52 +151,41 @@ func (txt *Text) drawBuff(lines []term.Line, t pixel.Target) {
 				txt.glyph[i].Color = pixel.ToRGBA(ch.FgColor)
 			}
 
-			var rect, frame, bounds pixel.Rect
-			rect, frame, bounds, txt.Dot = txt.Atlas().DrawRune(txt.prevR, ch.R, txt.Dot)
+			size := txt.manager.CharSize()
+			pos := pixel.V((float64(size.X) * float64(x)), txt.Orig.Y-float64(size.Y)*float64(y))
+
+			rect, frame := txt.DrawLetter(ch.R, pos)
+
+			pos.X += size.X / 2
+			pos.Y += txt.atlas.Descent()
+
+			if ch.BgColor != nil {
+				txt.sprite.DrawColorMask(txt.batch, pixel.IM.Moved(pos), ch.BgColor)
+			}
 
 			txt.prevR = ch.R
 
-			rv := [...]pixel.Vec{
+			rv := []pixel.Vec{
 				{X: rect.Min.X, Y: rect.Min.Y},
 				{X: rect.Max.X, Y: rect.Min.Y},
 				{X: rect.Max.X, Y: rect.Max.Y},
 				{X: rect.Min.X, Y: rect.Max.Y},
 			}
 
-			fv := [...]pixel.Vec{
+			fv := []pixel.Vec{
 				{X: frame.Min.X, Y: frame.Min.Y},
 				{X: frame.Max.X, Y: frame.Min.Y},
 				{X: frame.Max.X, Y: frame.Max.Y},
 				{X: frame.Min.X, Y: frame.Max.Y},
 			}
 
-			for i, j := range [...]int{0, 1, 2, 0, 2, 3} {
+			for i, j := range []int{0, 1, 2, 0, 2, 3} {
 				txt.glyph[i].Position = rv[j]
 				txt.glyph[i].Picture = fv[j]
-
 			}
 
 			txt.tris = append(txt.tris, txt.glyph...)
-			txt.dirty = true
-
-			// Draw background
-			if ch.BgColor != nil {
-
-				mat := pixel.IM.Moved(rect.Center())
-
-				txt.sprite.DrawColorMask(txt.batch, mat, ch.BgColor)
-			}
-
-			if txt.bounds.W()*txt.bounds.H() == 0 {
-				txt.bounds = bounds
-			} else {
-				txt.bounds = txt.bounds.Union(bounds)
-			}
-
 		}
-
-		txt.Dot.X = txt.Orig.X
-		txt.Dot.Y -= txt.LineHeight
 	}
 
 	txt.batch.Draw(t)

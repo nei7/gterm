@@ -2,28 +2,36 @@ package font
 
 import (
 	"fmt"
-	"image"
 	"log"
 	"math"
 	"os"
 
+	"github.com/faiface/pixel"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 )
 
 type Manager struct {
-	family   string
-	regular  font.Face
-	bold     font.Face
-	size     float64
-	dpi      float64
-	charSize image.Point
+	family       string
+	regular      font.Face
+	bold         font.Face
+	size         float64
+	dpi          float64
+	charSize     pixel.Vec
+	fontDotDepth int
 }
+
+var styles = []string{"Regular", "Bold"}
+
+const (
+	Regular = 0
+	Bold    = 1
+)
 
 func NewManager() *Manager {
 	return &Manager{
 		dpi:  72,
-		size: 20,
+		size: 12,
 	}
 }
 
@@ -52,19 +60,33 @@ func (m *Manager) createFace(f *opentype.Font) (font.Face, error) {
 func (m *Manager) SetFont(name string) error {
 	m.family = name
 
-	font, err := MatchFont("SauceCodePro Nerd Font Mono", "Regular")
-	if err != nil {
-
-		log.Fatal(err)
-	}
-
-	f, err := m.loadFontFace(font.Path)
-	if err != nil {
-		return err
-	}
-	m.regular = f
+	m.loadFontStyles()
 
 	return m.calcMetrics()
+}
+
+func (m *Manager) loadFontStyles() error {
+	for i, style := range styles {
+		font, err := MatchFont(m.family, style)
+		if err != nil {
+
+			log.Fatal(err)
+		}
+
+		f, err := m.loadFontFace(font.Path)
+		if err != nil {
+			return err
+		}
+
+		switch i {
+		case Regular:
+			m.regular = f
+		case Bold:
+			m.bold = f
+		}
+	}
+
+	return nil
 }
 
 func (m *Manager) calcMetrics() error {
@@ -89,8 +111,9 @@ func (m *Manager) calcMetrics() error {
 
 	metrics := face.Metrics()
 
-	m.charSize.X = int(math.Round(float64(prevAdvance) / m.dpi))
-	m.charSize.Y = int(math.Round(float64(metrics.Height) / m.dpi))
+	m.charSize.X = (math.Round(float64(prevAdvance) / m.dpi))
+	m.charSize.Y = (math.Round(float64(metrics.Height) / m.dpi))
+
 	return nil
 }
 
@@ -98,6 +121,14 @@ func (m *Manager) RegularFontFace() font.Face {
 	return m.regular
 }
 
-func (m *Manager) CharSize() image.Point {
+func (m *Manager) BoldFontFace() font.Face {
+	return m.bold
+}
+
+func (m *Manager) CharSize() pixel.Vec {
 	return m.charSize
+}
+
+func (m *Manager) DotDepth() int {
+	return m.fontDotDepth
 }

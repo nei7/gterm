@@ -24,10 +24,11 @@ func (g *Renderer) Run() {
 
 	go g.terminal.Run()
 
-	fps := time.Tick(time.Second / 120)
+	fps := time.Tick(time.Second / 60)
 	for !win.Closed() {
 		win.Clear(colornames.Black)
 
+		g.handleScroll()
 		g.handleInput()
 
 		g.drawText()
