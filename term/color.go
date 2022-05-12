@@ -100,10 +100,7 @@ func (t *Terminal) handleColorMode(modeStr string) {
 		t.currentFG = brightColors[mode-90]
 	case 100, 101, 102, 103, 104, 105, 106, 107:
 		t.currentBG = brightColors[mode-100]
-	default:
-		if t.debug {
-			log.Println("Unsupported graphics mode", mode)
-		}
+
 	}
 }
 
@@ -111,9 +108,6 @@ func (t *Terminal) handleColorModeMap(mode, ids string) {
 	var c color.Color
 	id, err := strconv.Atoi(ids)
 	if err != nil {
-		if t.debug {
-			log.Println("Invalid color map ID", ids)
-		}
 		return
 	}
 	if id <= 7 {
@@ -133,8 +127,6 @@ func (t *Terminal) handleColorModeMap(mode, ids string) {
 		inc := 256 / 24
 		y := id * inc
 		c = &color.Gray{uint8(y)}
-	} else if t.debug {
-		log.Println("Invalid colour map ID", id)
 	}
 
 	if mode == "38" {

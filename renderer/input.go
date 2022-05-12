@@ -32,12 +32,13 @@ func (g *Renderer) handleInput() error {
 }
 
 func (g *Renderer) handleScroll() {
+
 	scroll := g.window.MouseScroll()
-	if scroll.Y != 0 {
-		if scroll.Y < 0 {
-			g.terminal.ScrollDown()
-		} else {
-			g.terminal.ScrollUp()
-		}
+
+	if scroll.Y < 0 {
+		g.buffer.ScrollDown()
+	} else {
+		g.buffer.ScrollUp()
 	}
+
 }

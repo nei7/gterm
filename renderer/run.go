@@ -2,14 +2,20 @@ package renderer
 
 import (
 	"log"
-	"time"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
+	"github.com/nei7/gterm/config"
+
 	"golang.org/x/image/colornames"
 )
 
-func (g *Renderer) Run() {
+func Run() {
+	config, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	win, err := pixelgl.NewWindow(pixelgl.WindowConfig{
 		Title:     "gterm",
 		Bounds:    pixel.R(0, 0, 1024, 768),
@@ -20,21 +26,28 @@ func (g *Renderer) Run() {
 		log.Fatal(err)
 	}
 
-	g.setupWindow(win)
+	r := NewRenderer(config, win)
 
-	go g.terminal.Run()
+	go func() {
+		r.terminal.Run(r.updateChan)
+	}()
 
-	fps := time.Tick(time.Second / 60)
+	r.Draw(win)
+}
+
+func (g *Renderer) Draw(win *pixelgl.Window) {
 	for !win.Closed() {
-		win.Clear(colornames.Black)
 
-		g.handleScroll()
-		g.handleInput()
-
-		g.drawText()
+		select {
+		case <-g.updateChan:
+			win.Clear(colornames.Black)
+			g.drawText()
+		default:
+			g.handleInput()
+			g.handleScroll()
+		}
 
 		win.Update()
-
-		<-fps
 	}
+
 }

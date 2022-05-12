@@ -22,12 +22,14 @@ type parseState struct {
 }
 
 func (t *Terminal) handleOutput(out []byte) {
+
+	buf := t.buffer
 	state := &parseState{
 		esc: noEscape,
 	}
 
 	runes := []rune(string(out))
-	
+
 	for i, r := range runes {
 		if r == asciiEscape {
 			state.esc = i
@@ -48,15 +50,15 @@ func (t *Terminal) handleOutput(out []byte) {
 			case '(', ')':
 				state.vt100 = r
 			case '7':
-				t.buffer.savedCursorPos.X = t.buffer.cursorPos.X
-				t.buffer.savedCursorPos.Y = t.buffer.cursorPos.Y
+				buf.savedCursorPos.X = buf.cursorPos.X
+				t.buffer.savedCursorPos.Y = buf.cursorPos.Y
 			case '8':
-				t.buffer.savedCursorPos.X = t.buffer.cursorPos.X
-				t.buffer.savedCursorPos.Y = t.buffer.cursorPos.Y
+				buf.savedCursorPos.X = buf.cursorPos.X
+				buf.savedCursorPos.Y = buf.cursorPos.Y
 			case 'D':
-				t.ScrollDown()
+				t.buffer.ScrollDown()
 			case 'M':
-				t.ScrollUp()
+				t.buffer.ScrollUp()
 			case '=', '>':
 			}
 			state.esc = noEscape
@@ -88,20 +90,20 @@ func (t *Terminal) handleOutput(out []byte) {
 
 		switch {
 		case r == asciiCarriage:
-			t.moveCursor(t.buffer.cursorPos.Y, 0)
+			t.moveCursor(buf.cursorPos.Y, 0)
 
 		case r == asciiBackspace:
-			t.Backspace()
+			t.buffer.backspace()
 			continue
 
 		case r == 0x0e || r == 0x0f || r == asciBell:
 			continue
 
 		case r == asciiNewLine:
-			t.moveCursor(t.buffer.cursorPos.Y+1, t.buffer.cursorPos.X)
+			t.moveCursor(buf.cursorPos.Y+1, buf.cursorPos.X)
 
 		default:
-			t.buffer.insertChar(Char{
+			buf.insertChar(Char{
 				R:       r,
 				FgColor: t.currentFG,
 				BgColor: t.currentBG,

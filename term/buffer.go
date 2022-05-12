@@ -14,14 +14,19 @@ type Line struct {
 	Chars []Char
 }
 
+type Cord struct{ X, Y int }
+
 type Buffer struct {
 	lines []Line
 
-	rows uint16
-	cols uint16
+	rows int
+	cols int
 
-	savedCursorPos struct{ X, Y int }
-	cursorPos      struct{ X, Y int }
+	savedCursorPos Cord
+	cursorPos      Cord
+
+	scrollY                 int
+	scrollTop, scrollBottom int
 }
 
 func NewBuffer() *Buffer {
@@ -79,17 +84,25 @@ func (buf *Buffer) insertChar(char Char) {
 	buf.cursorPos.X++
 }
 
-func (buf *Buffer) clear() {
-	p := struct {
-		X int
-		Y int
-	}{
-		0, 0,
-	}
-	buf.cursorPos = p
-	buf.savedCursorPos = p
+func (buf *Buffer) moveCursor(row, col int) {
+	buf.cursorPos.X = col
+	buf.cursorPos.Y = row
+}
 
+func (buf *Buffer) backspace() {
+	last := buf.Row(buf.cursorPos.Y).Chars
+	if len(last) > 0 {
+		last = last[:buf.cursorPos.X-1]
+	}
+	buf.moveCursor(buf.cursorPos.Y, buf.cursorPos.X-1)
+}
+
+func (buf *Buffer) clear() {
+	pos := Cord{0, 0}
+	buf.cursorPos = pos
+	buf.savedCursorPos = pos
 	buf.lines = []Line{}
+	buf.scrollY = 0
 }
 
 func (buf *Buffer) SetRow(row int, content []Char) {
@@ -109,4 +122,37 @@ func (buf *Buffer) Row(row int) Line {
 	}
 
 	return buf.lines[row]
+}
+
+func (buf *Buffer) Size() Cord {
+	return Cord{
+		X: buf.cols,
+		Y: buf.rows,
+	}
+}
+
+func (buf *Buffer) Len() int {
+	return len(buf.lines)
+}
+
+func (buf *Buffer) ScrollDown() {
+	if buf.scrollY < len(buf.lines)-int(buf.rows) {
+		buf.scrollY++
+	}
+}
+
+func (buf *Buffer) ScrollUp() {
+	if buf.scrollY > 0 {
+		buf.scrollY--
+	}
+}
+
+func (buf *Buffer) ScrollToBottom() {
+	if len(buf.lines)-int(buf.rows) > 0 {
+		buf.scrollY = len(buf.lines) - int(buf.rows)
+	}
+}
+
+func (buf *Buffer) ScrollY() int {
+	return buf.scrollY
 }

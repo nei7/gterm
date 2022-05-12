@@ -24,9 +24,11 @@ type Manager struct {
 var styles = []string{"Regular", "Bold"}
 
 const (
-	Regular = 0
-	Bold    = 1
+	Regular Style = 0
+	Bold    Style = 1
 )
+
+type Style uint8
 
 func NewManager() *Manager {
 	return &Manager{
@@ -78,7 +80,7 @@ func (m *Manager) loadFontStyles() error {
 			return err
 		}
 
-		switch i {
+		switch Style(i) {
 		case Regular:
 			m.regular = f
 		case Bold:

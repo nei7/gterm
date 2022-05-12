@@ -7,18 +7,14 @@ import (
 	"os/exec"
 
 	"github.com/creack/pty"
-	"github.com/faiface/pixel"
 	"golang.org/x/image/colornames"
 )
 
 type Terminal struct {
+	title string
+
 	pty    *os.File
 	buffer *Buffer
-
-	title string
-	debug bool
-
-	scrollOffset, scrollTop, scrollBottom int
 
 	currentFG color.Color
 	currentBG color.Color
@@ -65,15 +61,16 @@ func startPty(homedir string) (*os.File, error) {
 	return pt, nil
 }
 
-func (t *Terminal) SetPtySize(size pixel.Vec) error {
+func (t *Terminal) SetSize(rows, cols int) error {
 	if err := pty.Setsize(t.pty, &pty.Winsize{
-		Rows: t.buffer.rows,
-		Cols: t.buffer.cols,
-		X:    uint16(size.X),
-		Y:    uint16(size.Y),
+		Rows: uint16(rows),
+		Cols: uint16(cols),
 	}); err != nil {
 		return err
 	}
+
+	t.buffer.rows = rows
+	t.buffer.cols = cols
 	return nil
 }
 
@@ -86,20 +83,7 @@ func (t *Terminal) Write(buf []byte) error {
 	return err
 }
 
-func (t *Terminal) GetLines() []Line {
-	if len(t.buffer.lines) < int(t.buffer.rows) {
-		return t.buffer.lines
-	}
-
-	offset := int(t.buffer.rows) + t.scrollOffset
-	if length := len(t.buffer.lines); offset >= length {
-		return t.buffer.lines[t.scrollOffset:length]
-	}
-
-	return t.buffer.lines[t.scrollOffset:offset]
-}
-
-func (t *Terminal) Run() {
+func (t *Terminal) Run(updateChan chan struct{}) {
 	buf := make([]byte, 2048)
 	for {
 		num, err := t.pty.Read(buf)
@@ -114,47 +98,13 @@ func (t *Terminal) Run() {
 		}
 
 		t.handleOutput(buf[:num])
+		t.buffer.ScrollToBottom()
 
-		t.ScrollToBottom()
+		updateChan <- struct{}{}
+
 	}
-}
-
-func (t *Terminal) Backspace() {
-	last := t.buffer.Row(t.buffer.cursorPos.Y).Chars
-	if len(last) > 0 {
-		last = last[:t.buffer.cursorPos.X-1]
-	}
-
-	t.moveCursor(t.buffer.cursorPos.Y, t.buffer.cursorPos.X-1)
 }
 
 func (t *Terminal) Clear() {
 	t.buffer.clear()
-}
-
-func (t *Terminal) Height() uint16 {
-	return t.buffer.rows
-}
-
-func (t *Terminal) ScrollDown() {
-	if t.scrollOffset < len(t.buffer.lines)-int(t.buffer.rows) {
-		t.scrollOffset++
-	}
-}
-
-func (t *Terminal) ScrollUp() {
-	if t.scrollOffset > 0 {
-		t.scrollOffset--
-	}
-}
-
-func (t *Terminal) ScrollToBottom() {
-	if len(t.buffer.lines)-int(t.buffer.rows) > 0 {
-		t.scrollOffset = len(t.buffer.lines) - int(t.buffer.rows)
-	}
-}
-
-func (t *Terminal) SetSize(rows, cols uint16) {
-	t.buffer.rows = rows
-	t.buffer.cols = cols
 }

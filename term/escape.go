@@ -1,7 +1,6 @@
 package term
 
 import (
-	"log"
 	"strconv"
 	"strings"
 )
@@ -34,8 +33,6 @@ func (t *Terminal) handleEscape(code string) {
 	runes := []rune(code)
 	if esc, ok := escapes[runes[len(code)-1]]; ok {
 		esc(t, code[:len(code)-1])
-	} else if t.debug {
-		log.Println("Unrecognised Escape:", code)
 	}
 }
 
@@ -197,7 +194,7 @@ func escapeInsertLines(t *Terminal, msg string) {
 	if rows == 0 {
 		rows = 1
 	}
-	i := t.scrollBottom
+	i := t.buffer.scrollBottom
 	for ; i > t.buffer.cursorPos.Y-rows; i-- {
 		t.buffer.SetRow(i, t.buffer.Row(i-rows).Chars)
 	}
@@ -263,6 +260,6 @@ func escapeSetScrollArea(t *Terminal, msg string) {
 		}
 	}
 
-	t.scrollTop = start
-	t.scrollBottom = end
+	t.buffer.scrollTop = start
+	t.buffer.scrollBottom = end
 }
