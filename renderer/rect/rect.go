@@ -6,16 +6,19 @@ import (
 	"github.com/faiface/pixel"
 )
 
-type Rect struct {
-	frame  pixel.Rect
-	d      pixel.Drawer
-	tri    *pixel.TrianglesData
+type RectBatch struct {
+	frame pixel.Rect
+	d     pixel.Drawer
+
+	tris pixel.TrianglesData
+	tmp  *pixel.TrianglesData
+
 	matrix pixel.Matrix
 	mask   pixel.RGBA
 	pic    pixel.Picture
 }
 
-func NewRect(size pixel.Rect, color color.Color) *Rect {
+func NewRectBatch(size pixel.Rect, color color.Color) *RectBatch {
 	pic := pixel.MakePictureData(size)
 
 	r, g, b, a := color.RGBA()
@@ -26,53 +29,53 @@ func NewRect(size pixel.Rect, color color.Color) *Rect {
 		pic.Pix[i].A = uint8(a)
 	}
 
-	tri := pixel.MakeTrianglesData(6)
-	rect := &Rect{
-		tri:  tri,
-		d:    pixel.Drawer{Triangles: tri},
+	rect := &RectBatch{
 		mask: pixel.Alpha(1),
 		pic:  pic,
 	}
 
+	rect.d = pixel.Drawer{Triangles: &rect.tris, Picture: pic}
+
 	rect.matrix = pixel.IM
 
-	rect.d.Picture = pic
-
 	rect.frame = pic.Rect
-	rect.calcData()
 
 	return rect
 }
 
-func (rect *Rect) Picture() pixel.Picture {
+func (rect *RectBatch) Picture() pixel.Picture {
 	return rect.pic
 }
 
-func (r *Rect) calcData() {
+func (r *RectBatch) calcData() {
 	var (
 		center     = r.frame.Center()
 		horizontal = pixel.V(r.frame.W()/2, 0)
 		vertical   = pixel.V(0, r.frame.H()/2)
 	)
 
-	(*r.tri)[0].Position = pixel.Vec{}.Sub(horizontal).Sub(vertical)
-	(*r.tri)[1].Position = pixel.Vec{}.Add(horizontal).Sub(vertical)
-	(*r.tri)[2].Position = pixel.Vec{}.Add(horizontal).Add(vertical)
-	(*r.tri)[3].Position = pixel.Vec{}.Sub(horizontal).Sub(vertical)
-	(*r.tri)[4].Position = pixel.Vec{}.Add(horizontal).Add(vertical)
-	(*r.tri)[5].Position = pixel.Vec{}.Sub(horizontal).Add(vertical)
+	tri := *pixel.MakeTrianglesData(6)
 
-	for i := range *r.tri {
-		(*r.tri)[i].Color = r.mask
-		(*r.tri)[i].Picture = center.Add((*r.tri)[i].Position)
-		(*r.tri)[i].Intensity = 1
-		(*r.tri)[i].Position = r.matrix.Project((*r.tri)[i].Position)
+	tri[0].Position = pixel.Vec{}.Sub(horizontal).Sub(vertical)
+	tri[1].Position = pixel.Vec{}.Add(horizontal).Sub(vertical)
+	tri[2].Position = pixel.Vec{}.Add(horizontal).Add(vertical)
+	tri[3].Position = pixel.Vec{}.Sub(horizontal).Sub(vertical)
+	tri[4].Position = pixel.Vec{}.Add(horizontal).Add(vertical)
+	tri[5].Position = pixel.Vec{}.Sub(horizontal).Add(vertical)
+
+	for i := range tri {
+		tri[i].Color = r.mask
+		tri[i].Picture = center.Add(tri[i].Position)
+		tri[i].Intensity = 1
+		tri[i].Position = r.matrix.Project(tri[i].Position)
 	}
+
+	r.tris = append(r.tris, tri...)
 
 	r.d.Dirty()
 }
 
-func (r *Rect) DrawColorMask(t pixel.Target, matrix pixel.Matrix, mask color.Color) {
+func (r *RectBatch) DrawColorMask(matrix pixel.Matrix, mask color.Color) {
 	dirty := false
 	if matrix != r.matrix {
 		r.matrix = matrix
@@ -90,12 +93,13 @@ func (r *Rect) DrawColorMask(t pixel.Target, matrix pixel.Matrix, mask color.Col
 	if dirty {
 		r.calcData()
 	}
+}
 
+func (r *RectBatch) Draw(t pixel.Target) {
 	r.d.Draw(t)
 }
 
-func DrawRect(t pixel.Target, mat pixel.Matrix, size pixel.Rect, color color.Color) *Rect {
-	rect := NewRect(size, color)
-	rect.DrawColorMask(t, mat, color)
-	return rect
+func (r *RectBatch) Clear() {
+	r.d.Triangles.SetLen(0)
+	r.d.Dirty()
 }

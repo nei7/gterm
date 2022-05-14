@@ -1,7 +1,6 @@
 package text
 
 import (
-	"image/color"
 	"unicode"
 
 	"github.com/faiface/pixel"
@@ -48,13 +47,12 @@ func NewText(manager *font.Manager) *Text {
 	return txt
 }
 
-func (txt *Text) DrawLine(t pixel.Target, line term.Line, pos pixel.Vec) {
+func (txt *Text) DrawLine(t pixel.Target, line term.Line, pos pixel.Vec, b *rect.RectBatch) {
 	txt.trans.SetLen(0)
 	var td pixel.TrianglesData
 	td.SetLen(6)
 
 	txt.dot = pos
-	rect := rect.NewRect(pixel.R(0, 0, txt.charSize.X+1, txt.charSize.Y+1), color.White)
 
 	for _, ch := range line.Chars {
 
@@ -63,8 +61,7 @@ func (txt *Text) DrawLine(t pixel.Target, line term.Line, pos pixel.Vec) {
 		}
 
 		rectPos := pixel.IM.Moved(pixel.V(txt.dot.X+(txt.charSize.X/2), txt.dot.Y+txt.regular.Descent()))
-
-		rect.DrawColorMask(t, rectPos, ch.BgColor)
+		b.DrawColorMask(rectPos, ch.BgColor)
 
 		var r, frame pixel.Rect
 		r, frame, _, txt.dot = txt.regular.DrawRune(txt.prevR, ch.R, txt.dot)
@@ -92,5 +89,8 @@ func (txt *Text) DrawLine(t pixel.Target, line term.Line, pos pixel.Vec) {
 
 	}
 
+	b.Draw(t)
 	txt.dw.Draw(t)
+
+	b.Clear()
 }
